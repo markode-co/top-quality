@@ -9,7 +9,7 @@ class SupabaseBootstrap {
 
   static bool get isConfigured =>
       AppConstants.supabaseUrl.isNotEmpty &&
-      AppConstants.supabaseAnonKey.isNotEmpty;
+      AppConstants.supabaseClientKey.isNotEmpty;
 
   static Future<void> initialize() async {
     if (!isConfigured) {
@@ -18,7 +18,7 @@ class SupabaseBootstrap {
 
     await Supabase.initialize(
       url: AppConstants.supabaseUrl,
-      anonKey: AppConstants.supabaseAnonKey,
+      anonKey: AppConstants.supabaseClientKey,
     );
   }
 }

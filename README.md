@@ -36,8 +36,18 @@ supabase/
 flutter pub get
 flutter run -d chrome ^
   --dart-define=SUPABASE_URL=https://YOUR-PROJECT.supabase.co ^
-  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
+
+Compatible alternatives are also supported:
+
+```bash
+flutter run -d chrome ^
+  --dart-define=NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co ^
+  --dart-define=NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+Legacy `SUPABASE_ANON_KEY` still works, but the publishable key is the preferred client key.
 
 If credentials are missing, the app intentionally shows a setup-required screen and does not fall back to fake data.
 

@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "@supabase/supabase-js";
 
 type Action = "create" | "update" | "deactivate" | "delete";
 
@@ -18,7 +19,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -26,15 +27,18 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const clientKey =
+      Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ??
+      Deno.env.get("SUPABASE_ANON_KEY") ??
+      "";
     const authHeader = req.headers.get("Authorization");
 
-    if (!supabaseUrl || !serviceRoleKey || !anonKey || !authHeader) {
+    if (!supabaseUrl || !serviceRoleKey || !clientKey || !authHeader) {
       throw new Error("Missing Supabase environment configuration.");
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const userClient = createClient(supabaseUrl, anonKey, {
+    const userClient = createClient(supabaseUrl, clientKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -107,7 +111,7 @@ Deno.serve(async (req) => {
           throw new Error(userInsertError.message);
         }
 
-        if (permissions.isNotEmpty) {
+        if (permissions.length > 0) {
           const { error: permissionInsertError } = await adminClient
             .from("user_permissions")
             .insert(
@@ -156,7 +160,7 @@ Deno.serve(async (req) => {
           user_metadata: { name: body.name },
         };
 
-        if (body.password && body.password.trim().isNotEmpty) {
+        if (body.password && body.password.trim().length > 0) {
           userUpdatePayload.password = body.password;
         }
 
@@ -192,7 +196,7 @@ Deno.serve(async (req) => {
           throw new Error(permissionDeleteError.message);
         }
 
-        if (permissions.isNotEmpty) {
+        if (permissions.length > 0) {
           const { error: permissionInsertError } = await adminClient
             .from("user_permissions")
             .insert(
@@ -278,6 +282,9 @@ Deno.serve(async (req) => {
 
         return jsonResponse({ success: true, employeeId: body.employeeId });
       }
+
+      default:
+        throw new Error("Unsupported employee action.");
     }
   } catch (error) {
     return jsonResponse(

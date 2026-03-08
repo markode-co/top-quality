@@ -61,9 +61,15 @@ class SupabaseBackendDataSource implements BackendDataSource {
 
     try {
       await _client.rpc('record_user_login');
+      final profile = await getCurrentUser();
+      if (profile == null) {
+        throw AppException(
+          'The authentication account exists, but no employee profile was found in the users table.',
+        );
+      }
     } catch (error) {
       await _client.auth.signOut();
-      throw AppException(error.toString());
+      throw AppException(_friendlyAuthError(error));
     }
   }
 
@@ -536,5 +542,16 @@ class SupabaseBackendDataSource implements BackendDataSource {
     } catch (_) {
       return fallback;
     }
+  }
+
+  String _friendlyAuthError(Object error) {
+    final message = error.toString();
+    if (message.contains('record_user_login')) {
+      return 'Supabase migration is incomplete. Apply the SQL schema so record_user_login() is available.';
+    }
+    if (message.contains('no employee profile')) {
+      return 'Signed-in user has no employee profile. Insert the user into public.users with an assigned role.';
+    }
+    return message;
   }
 }

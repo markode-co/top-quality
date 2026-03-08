@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:warehouse_manager_app/core/constants/app_constants.dart';
 import 'package:warehouse_manager_app/core/services/supabase_bootstrap.dart';
@@ -24,6 +25,12 @@ class WarehouseApp extends ConsumerWidget {
       title: AppConstants.appTitle,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      locale: const Locale('ar', 'EG'),
+      supportedLocales: const [
+        Locale('ar', 'EG'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const AppRoot(),
       debugShowCheckedModeBanner: false,
     );

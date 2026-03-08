@@ -1,0 +1,38 @@
+{
+  "name": "flowstock-web-deploy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deployment utilities for serving Flutter Web from Supabase Storage through an Edge Function SPA proxy.",
+  "type": "commonjs",
+  "scripts": {
+    "supabase:web:build": "flutter build web --release --base-href /",
+    "supabase:web:upload": "node ./scripts/upload-supabase-web.cjs",
+    "supabase:web:deploy": "npm run supabase:web:build && npm run supabase:web:upload",
+    "supabase:functions:serve:static-proxy": "supabase functions serve static-proxy --no-verify-jwt",
+    "supabase:functions:deploy:static-proxy": "supabase functions deploy static-proxy --no-verify-jwt --use-api"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "mime": "^2.6.0"
+  },
+  "devDependencies": {
+    "supabase": "^2.77.0"
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyanalksor-maker/program-EPR.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kyanalksor-maker/program-EPR/issues"
+  },
+  "homepage": "https://github.com/kyanalksor-maker/program-EPR#readme"
+}
