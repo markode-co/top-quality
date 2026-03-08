@@ -5,6 +5,9 @@
   "description": "Deployment utilities for serving Flutter Web from Supabase Storage through an Edge Function SPA proxy.",
   "type": "commonjs",
   "scripts": {
+    "firebase:web:build": "node ./scripts/build-firebase-web.cjs",
+    "firebase:serve": "npx firebase-tools emulators:start --only hosting",
+    "firebase:deploy": "npx firebase-tools deploy --only hosting",
     "netlify:web:build": "node ./scripts/build-netlify-web.cjs",
     "netlify:web:deploy": "npx netlify deploy --dir=build/web --prod",
     "netlify:web:prepare": "node ./scripts/prepare-netlify-web.cjs",
@@ -16,6 +19,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
+    "firebase": "^12.10.0",
     "mime": "^2.6.0"
   },
   "devDependencies": {
