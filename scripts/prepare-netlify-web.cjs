@@ -47,6 +47,17 @@ const readme = `# Netlify Deploy
 
 This folder is ready to deploy as a Flutter Web SPA on Netlify.
 
+## Required environment variables
+
+- SUPABASE_URL
+- SUPABASE_PUBLISHABLE_KEY
+
+Compatible fallback names are also supported:
+
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+- SUPABASE_ANON_KEY
+
 ## Manual deploy
 
 1. Open Netlify.
