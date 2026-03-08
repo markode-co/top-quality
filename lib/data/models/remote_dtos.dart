@@ -1,9 +1,9 @@
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/domain/entities/activity_log.dart';
-import 'package:warehouse_manager_app/domain/entities/app_notification.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/domain/entities/activity_log.dart';
+import 'package:top_quality/domain/entities/app_notification.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/domain/entities/product.dart';
 
 class RemoteMapper {
   const RemoteMapper._();
@@ -142,3 +142,4 @@ class RemoteMapper {
     );
   }
 }
+

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
 
 class StatCard extends StatelessWidget {
   const StatCard({
@@ -157,3 +157,4 @@ class EmptyPlaceholder extends StatelessWidget {
     );
   }
 }
+

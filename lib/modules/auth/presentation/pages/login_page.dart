@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -40,7 +40,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
                     const Icon(Icons.warehouse_outlined, size: 44),
                     const SizedBox(height: 18),
-                    Text('FlowStock WMS',
+                    Text('Top Quality',
                         style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 8),
                     const Text('Sign in with your Supabase credentials.'),
@@ -90,3 +90,4 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
   }
 }
+

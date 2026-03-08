@@ -1,5 +1,5 @@
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/domain/entities/order.dart';
 
 class UserActivitySummary {
   const UserActivitySummary({
@@ -54,3 +54,4 @@ class EmployeeReport {
   final int ordersShipped;
   final int ordersReturned;
 }
+

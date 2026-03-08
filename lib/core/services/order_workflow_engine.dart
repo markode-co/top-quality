@@ -1,6 +1,6 @@
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/errors/app_exception.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/errors/app_exception.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
 
 class OrderWorkflowEngine {
   const OrderWorkflowEngine();
@@ -80,3 +80,4 @@ class OrderWorkflowEngine {
     }
   }
 }
+

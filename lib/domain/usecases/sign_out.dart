@@ -1,4 +1,4 @@
-import 'package:warehouse_manager_app/domain/repositories/auth_repository.dart';
+import 'package:top_quality/domain/repositories/auth_repository.dart';
 
 class SignOutUseCase {
   const SignOutUseCase(this._repository);
@@ -7,3 +7,4 @@ class SignOutUseCase {
 
   Future<void> call() => _repository.signOut();
 }
+

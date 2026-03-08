@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/utils/formatters.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/entities/employee_draft.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
-import 'package:warehouse_manager_app/presentation/widgets/common_widgets.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/utils/formatters.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class UsersPage extends ConsumerWidget {
   const UsersPage({super.key});
@@ -262,3 +262,4 @@ class UsersPage extends ConsumerWidget {
     );
   }
 }
+

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/utils/formatters.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
-import 'package:warehouse_manager_app/domain/entities/product_draft.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/utils/formatters.dart';
+import 'package:top_quality/domain/entities/product.dart';
+import 'package:top_quality/domain/entities/product_draft.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
 
 class InventoryPage extends ConsumerStatefulWidget {
   const InventoryPage({super.key});
@@ -311,3 +311,4 @@ class _MetricText extends StatelessWidget {
     );
   }
 }
+

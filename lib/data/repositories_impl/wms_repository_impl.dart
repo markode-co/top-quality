@@ -1,14 +1,14 @@
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/data/datasources/remote/backend_data_source.dart';
-import 'package:warehouse_manager_app/domain/entities/activity_log.dart';
-import 'package:warehouse_manager_app/domain/entities/app_notification.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/entities/dashboard_snapshot.dart';
-import 'package:warehouse_manager_app/domain/entities/employee_draft.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
-import 'package:warehouse_manager_app/domain/entities/product_draft.dart';
-import 'package:warehouse_manager_app/domain/repositories/wms_repository.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
+import 'package:top_quality/domain/entities/activity_log.dart';
+import 'package:top_quality/domain/entities/app_notification.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
+import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/domain/entities/product.dart';
+import 'package:top_quality/domain/entities/product_draft.dart';
+import 'package:top_quality/domain/repositories/wms_repository.dart';
 
 class WmsRepositoryImpl implements WmsRepository {
   const WmsRepositoryImpl(this._dataSource);
@@ -185,3 +185,4 @@ class WmsRepositoryImpl implements WmsRepository {
   @override
   Stream<List<AppUser>> watchUsers() => _dataSource.watchUsers();
 }
+

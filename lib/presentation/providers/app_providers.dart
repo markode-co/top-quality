@@ -1,25 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/services/order_workflow_engine.dart';
-import 'package:warehouse_manager_app/core/services/supabase_bootstrap.dart';
-import 'package:warehouse_manager_app/data/datasources/remote/backend_data_source.dart';
-import 'package:warehouse_manager_app/data/datasources/remote/supabase_backend_data_source.dart';
-import 'package:warehouse_manager_app/data/repositories_impl/auth_repository_impl.dart';
-import 'package:warehouse_manager_app/data/repositories_impl/wms_repository_impl.dart';
-import 'package:warehouse_manager_app/domain/entities/activity_log.dart';
-import 'package:warehouse_manager_app/domain/entities/app_notification.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/entities/dashboard_snapshot.dart';
-import 'package:warehouse_manager_app/domain/entities/employee_draft.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
-import 'package:warehouse_manager_app/domain/entities/product_draft.dart';
-import 'package:warehouse_manager_app/domain/repositories/auth_repository.dart';
-import 'package:warehouse_manager_app/domain/repositories/wms_repository.dart';
-import 'package:warehouse_manager_app/domain/usecases/create_order.dart';
-import 'package:warehouse_manager_app/domain/usecases/sign_in.dart';
-import 'package:warehouse_manager_app/domain/usecases/sign_out.dart';
-import 'package:warehouse_manager_app/domain/usecases/transition_order.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/services/order_workflow_engine.dart';
+import 'package:top_quality/core/services/supabase_bootstrap.dart';
+import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
+import 'package:top_quality/data/datasources/remote/supabase_backend_data_source.dart';
+import 'package:top_quality/data/repositories_impl/auth_repository_impl.dart';
+import 'package:top_quality/data/repositories_impl/wms_repository_impl.dart';
+import 'package:top_quality/domain/entities/activity_log.dart';
+import 'package:top_quality/domain/entities/app_notification.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
+import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/domain/entities/product.dart';
+import 'package:top_quality/domain/entities/product_draft.dart';
+import 'package:top_quality/domain/repositories/auth_repository.dart';
+import 'package:top_quality/domain/repositories/wms_repository.dart';
+import 'package:top_quality/domain/usecases/create_order.dart';
+import 'package:top_quality/domain/usecases/sign_in.dart';
+import 'package:top_quality/domain/usecases/sign_out.dart';
+import 'package:top_quality/domain/usecases/transition_order.dart';
 
 final appModeProvider = Provider<AppMode>((ref) => SupabaseBootstrap.mode);
 
@@ -347,3 +347,4 @@ final operationsControllerProvider =
     StateNotifierProvider<OperationsController, AsyncValue<void>>(
   (ref) => OperationsController(ref),
 );
+

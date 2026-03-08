@@ -1,6 +1,6 @@
-import 'package:warehouse_manager_app/data/datasources/remote/backend_data_source.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/repositories/auth_repository.dart';
+import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl(this._dataSource);
@@ -24,3 +24,4 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Stream<AppUser?> watchSession() => _dataSource.watchSession();
 }
+

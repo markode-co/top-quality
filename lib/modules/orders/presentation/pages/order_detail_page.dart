@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/utils/formatters.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/modules/orders/presentation/pages/create_order_page.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
-import 'package:warehouse_manager_app/presentation/widgets/common_widgets.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/utils/formatters.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/modules/orders/presentation/pages/create_order_page.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class OrderDetailPage extends ConsumerWidget {
   const OrderDetailPage({
@@ -256,3 +256,4 @@ class _Info extends StatelessWidget {
     );
   }
 }
+

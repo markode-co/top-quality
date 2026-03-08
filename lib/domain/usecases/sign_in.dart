@@ -1,4 +1,4 @@
-import 'package:warehouse_manager_app/domain/repositories/auth_repository.dart';
+import 'package:top_quality/domain/repositories/auth_repository.dart';
 
 class SignInUseCase {
   const SignInUseCase(this._repository);
@@ -12,3 +12,4 @@ class SignInUseCase {
     return _repository.signIn(email: email, password: password);
   }
 }
+

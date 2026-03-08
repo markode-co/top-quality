@@ -1,4 +1,4 @@
-# FlowStock WMS ERD
+# Top Quality ERD
 
 ```mermaid
 erDiagram
@@ -146,3 +146,4 @@ erDiagram
     timestamptz created_at
   }
 ```
+

@@ -15,6 +15,6 @@ class AppConstants {
   static const supabaseAnonKey = supabaseClientKey;
   static const supabaseFunctionsBaseUrl =
       String.fromEnvironment('SUPABASE_FUNCTIONS_URL');
-  static const appTitle = 'FlowStock WMS';
+  static const appTitle = 'Top Quality';
   static const currencyCode = 'EGP';
 }

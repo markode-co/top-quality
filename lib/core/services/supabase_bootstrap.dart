@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:warehouse_manager_app/core/constants/app_constants.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
+import 'package:top_quality/core/constants/app_constants.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
 
 class SupabaseBootstrap {
   const SupabaseBootstrap._();
@@ -22,3 +22,4 @@ class SupabaseBootstrap {
     );
   }
 }
+

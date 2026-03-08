@@ -1,10 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/utils/formatters.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
-import 'package:warehouse_manager_app/presentation/widgets/common_widgets.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/utils/formatters.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({
@@ -196,3 +196,4 @@ class _StatusChart extends StatelessWidget {
     );
   }
 }
+

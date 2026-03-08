@@ -1,5 +1,5 @@
 import 'package:intl/intl.dart';
-import 'package:warehouse_manager_app/core/constants/app_constants.dart';
+import 'package:top_quality/core/constants/app_constants.dart';
 
 class AppFormatters {
   const AppFormatters._();
@@ -22,3 +22,4 @@ class AppFormatters {
 
   static String compact(num value) => _compact.format(value);
 }
+

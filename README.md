@@ -1,4 +1,4 @@
-# FlowStock WMS
+# Top Quality
 
 Production-ready Warehouse Management System and Order Workflow platform built with Flutter, Riverpod, Supabase, PostgreSQL, realtime subscriptions, RBAC, and EGP as the default system currency.
 
@@ -39,6 +39,20 @@ flutter run -d chrome ^
   --dart-define=SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
+For local development with the checked-in env file:
+
+```powershell
+flutter run -d chrome --dart-define-from-file=supabase.functions.local.env
+```
+
+To validate that the remote project is usable by the app and not just migrated on disk:
+
+```powershell
+npm run supabase:runtime:check
+```
+
+That check verifies the REST surface used by Flutter, the required RPC functions, and the `admin-manage-employee` edge function route.
+
 Compatible alternatives are also supported:
 
 ```bash
@@ -77,3 +91,4 @@ If credentials are missing, the app intentionally shows a setup-required screen 
 - ERD: `docs/erd.md`
 - SQL schema and policies: `supabase/migrations/0001_initial_schema.sql`
 - Employee management edge function: `supabase/functions/admin-manage-employee/index.ts`
+

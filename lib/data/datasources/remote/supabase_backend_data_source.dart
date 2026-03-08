@@ -1,18 +1,18 @@
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/core/errors/app_exception.dart';
-import 'package:warehouse_manager_app/data/datasources/remote/backend_data_source.dart';
-import 'package:warehouse_manager_app/data/models/remote_dtos.dart';
-import 'package:warehouse_manager_app/domain/entities/activity_log.dart';
-import 'package:warehouse_manager_app/domain/entities/app_notification.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/domain/entities/dashboard_snapshot.dart';
-import 'package:warehouse_manager_app/domain/entities/employee_draft.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
-import 'package:warehouse_manager_app/domain/entities/product_draft.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/errors/app_exception.dart';
+import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
+import 'package:top_quality/data/models/remote_dtos.dart';
+import 'package:top_quality/domain/entities/activity_log.dart';
+import 'package:top_quality/domain/entities/app_notification.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
+import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/domain/entities/product.dart';
+import 'package:top_quality/domain/entities/product_draft.dart';
 
 class SupabaseBackendDataSource implements BackendDataSource {
   SupabaseBackendDataSource() : _client = Supabase.instance.client;
@@ -32,17 +32,21 @@ class SupabaseBackendDataSource implements BackendDataSource {
       return null;
     }
 
-    final response = await _client
-        .from('v_users_with_permissions')
-        .select()
-        .eq('id', authUser.id)
-        .maybeSingle();
+    try {
+      final response = await _client
+          .from('v_users_with_permissions')
+          .select()
+          .eq('id', authUser.id)
+          .maybeSingle();
 
-    if (response == null) {
-      return null;
+      if (response == null) {
+        return null;
+      }
+
+      return RemoteMapper.appUser(Map<String, dynamic>.from(response));
+    } catch (_) {
+      return _fetchCurrentUserCompat(authUser.id);
     }
-
-    return RemoteMapper.appUser(Map<String, dynamic>.from(response));
   }
 
   @override
@@ -337,6 +341,16 @@ class SupabaseBackendDataSource implements BackendDataSource {
     );
 
     if (response.status >= 400) {
+      if (response.status == 404) {
+        throw AppException(
+          'The admin-manage-employee edge function is not deployed. Deploy the function in Supabase before managing employees.',
+        );
+      }
+
+      final payload = response.data;
+      if (payload is Map<String, dynamic> && payload['error'] != null) {
+        throw AppException(payload['error'].toString());
+      }
       throw AppException(response.data.toString());
     }
   }
@@ -386,38 +400,50 @@ class SupabaseBackendDataSource implements BackendDataSource {
   }
 
   Future<List<AppUser>> _fetchUsers() async {
-    final response = await _client
-        .from('v_users_with_permissions')
-        .select()
-        .order('created_at', ascending: false);
+    try {
+      final response = await _client
+          .from('v_users_with_permissions')
+          .select()
+          .order('created_at', ascending: false);
 
-    return response
-        .map((row) => RemoteMapper.appUser(Map<String, dynamic>.from(row)))
-        .toList();
+      return response
+          .map((row) => RemoteMapper.appUser(Map<String, dynamic>.from(row)))
+          .toList();
+    } catch (_) {
+      return _fetchUsersCompat();
+    }
   }
 
   Future<List<Product>> _fetchProducts() async {
-    final response = await _client
-        .from('v_products')
-        .select()
-        .order('name');
+    try {
+      final response = await _client
+          .from('v_products')
+          .select()
+          .order('name');
 
-    return response
-        .map((row) => RemoteMapper.product(Map<String, dynamic>.from(row)))
-        .toList();
+      return response
+          .map((row) => RemoteMapper.product(Map<String, dynamic>.from(row)))
+          .toList();
+    } catch (_) {
+      return _fetchProductsCompat();
+    }
   }
 
   Future<List<OrderEntity>> _fetchOrders() async {
-    final response = await _client.from('orders').select(
-          'id, customer_name, customer_phone, order_date, order_notes, status, '
-          'created_by, created_by_name, '
-          'order_items(id, product_id, product_name, quantity, purchase_price, sale_price, profit), '
-          'order_status_history(id, status, changed_by, changed_by_name, changed_at, note)',
-        ).order('order_date', ascending: false);
+    try {
+      final response = await _client.from('orders').select(
+            'id, customer_name, customer_phone, order_date, order_notes, status, '
+            'created_by, created_by_name, '
+            'order_items(id, product_id, product_name, quantity, purchase_price, sale_price, profit), '
+            'order_status_history(id, status, changed_by, changed_by_name, changed_at, note)',
+          ).order('order_date', ascending: false);
 
-    return response
-        .map((row) => RemoteMapper.order(Map<String, dynamic>.from(row)))
-        .toList();
+      return response
+          .map((row) => RemoteMapper.order(Map<String, dynamic>.from(row)))
+          .toList();
+    } catch (_) {
+      return _fetchOrdersCompat();
+    }
   }
 
   Future<List<AppNotification>> _fetchNotifications(String userId) async {
@@ -554,4 +580,260 @@ class SupabaseBackendDataSource implements BackendDataSource {
     }
     return message;
   }
+
+  Future<AppUser?> _fetchCurrentUserCompat(String userId) async {
+    final users = await _fetchUsersCompat(userId: userId);
+    if (users.isEmpty) {
+      return null;
+    }
+    return users.first;
+  }
+
+  Future<List<AppUser>> _fetchUsersCompat({String? userId}) async {
+    final usersQuery = _client.from('users').select(
+      'id, name, email, username, role_id, is_active, created_at, updated_at, last_active',
+    );
+    if (userId != null) {
+      usersQuery.eq('id', userId);
+    }
+    final usersResponse = await usersQuery.order('created_at', ascending: false);
+
+    final userRows = usersResponse
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+    if (userRows.isEmpty) {
+      return const [];
+    }
+
+    final roleIds = userRows
+        .map((row) => row['role_id']?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final userIds = userRows
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList();
+
+    final rolesResponse = roleIds.isEmpty
+        ? const []
+        : await _client
+            .from('roles')
+            .select()
+            .inFilter('id', roleIds);
+
+    final rolePermissionsResponse = roleIds.isEmpty
+        ? const []
+        : await _client
+            .from('role_permissions')
+            .select()
+            .inFilter('role_id', roleIds);
+
+    final permissionsCatalogResponse = await _client
+        .from('permissions')
+        .select();
+
+    final permissionsResponse = await _client
+        .from('user_permissions')
+        .select()
+        .inFilter('user_id', userIds);
+
+    final roleNamesById = <String, String>{
+      for (final role in rolesResponse)
+        role['id'].toString(): _resolveRoleName(Map<String, dynamic>.from(role)),
+    };
+
+    final permissionCodeById = <String, String>{};
+    for (final permission in permissionsCatalogResponse) {
+      final row = Map<String, dynamic>.from(permission);
+      final permissionId = _resolvePermissionId(row);
+      final permissionCode = _resolvePermissionCode(
+        row,
+        const <String, String>{},
+      );
+      if (permissionId == null || permissionId.isEmpty) {
+        continue;
+      }
+      if (permissionCode == null || permissionCode.isEmpty) {
+        continue;
+      }
+      permissionCodeById[permissionId] = permissionCode;
+    }
+
+    final permissionsByUserId = <String, List<String>>{};
+    for (final item in permissionsResponse) {
+      final row = Map<String, dynamic>.from(item);
+      final id = row['user_id']?.toString();
+      final permissionCode = _resolvePermissionCode(row, permissionCodeById);
+      if (id == null || id.isEmpty || permissionCode == null || permissionCode.isEmpty) {
+        continue;
+      }
+      permissionsByUserId.putIfAbsent(id, () => <String>[]).add(permissionCode);
+    }
+
+    final permissionsByRoleId = <String, List<String>>{};
+    for (final item in rolePermissionsResponse) {
+      final row = Map<String, dynamic>.from(item);
+      final roleId = row['role_id']?.toString();
+      final permissionCode = _resolvePermissionCode(row, permissionCodeById);
+      if (roleId == null || roleId.isEmpty || permissionCode == null || permissionCode.isEmpty) {
+        continue;
+      }
+      permissionsByRoleId.putIfAbsent(roleId, () => <String>[]).add(permissionCode);
+    }
+
+    return userRows.map((row) {
+      final id = row['id']?.toString() ?? '';
+      final roleId = row['role_id']?.toString() ?? '';
+      final effectivePermissions = {
+        ...?permissionsByRoleId[roleId],
+        ...?permissionsByUserId[id],
+      }.toList();
+      return RemoteMapper.appUser({
+        ...row,
+        'role_name': roleNamesById[roleId] ?? '',
+        'permissions': effectivePermissions,
+      });
+    }).toList();
+  }
+
+  String _resolveRoleName(Map<String, dynamic> row) {
+    for (final key in const ['role_name', 'name', 'title', 'label']) {
+      final value = row[key]?.toString();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  String? _resolvePermissionId(Map<String, dynamic> row) {
+    for (final key in const ['id', 'permission_id']) {
+      final value = row[key]?.toString();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  String? _resolvePermissionCode(
+    Map<String, dynamic> row,
+    Map<String, String> permissionCodeById,
+  ) {
+    for (final key in const ['permission_code', 'code', 'name']) {
+      final value = row[key]?.toString();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    final permissionId = _resolvePermissionId(row);
+    if (permissionId == null || permissionId.isEmpty) {
+      return null;
+    }
+    return permissionCodeById[permissionId];
+  }
+
+  Future<List<Product>> _fetchProductsCompat() async {
+    final productsResponse = await _client
+        .from('products')
+        .select('id, name, sku, category, purchase_price, sale_price, is_active')
+        .eq('is_active', true)
+        .order('name');
+
+    final productRows = productsResponse
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+    if (productRows.isEmpty) {
+      return const [];
+    }
+
+    final productIds = productRows
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList();
+
+    final inventoryResponse = await _client
+        .from('inventory')
+        .select('product_id, stock, min_stock')
+        .inFilter('product_id', productIds);
+
+    final inventoryByProductId = <String, Map<String, dynamic>>{
+      for (final item in inventoryResponse)
+        item['product_id'].toString(): Map<String, dynamic>.from(item),
+    };
+
+    return productRows.map((row) {
+      final productId = row['id']?.toString() ?? '';
+      return RemoteMapper.product({
+        ...row,
+        ...?inventoryByProductId[productId],
+      });
+    }).toList();
+  }
+
+  Future<List<OrderEntity>> _fetchOrdersCompat() async {
+    final ordersResponse = await _client.from('orders').select(
+          'id, customer_name, customer_phone, order_date, order_notes, status, '
+          'created_by, created_by_name',
+        ).order('order_date', ascending: false);
+
+    final orderRows = ordersResponse
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+    if (orderRows.isEmpty) {
+      return const [];
+    }
+
+    final orderIds = orderRows
+        .map((row) => row['id']?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList();
+
+    final itemsResponse = await _client
+        .from('order_items')
+        .select('id, order_id, product_id, product_name, quantity, purchase_price, sale_price, profit')
+        .inFilter('order_id', orderIds);
+
+    final historyResponse = await _client
+        .from('order_status_history')
+        .select('id, order_id, status, changed_by, changed_by_name, changed_at, note')
+        .inFilter('order_id', orderIds);
+
+    final itemsByOrderId = <String, List<Map<String, dynamic>>>{};
+    for (final item in itemsResponse) {
+      final row = Map<String, dynamic>.from(item);
+      final orderId = row['order_id']?.toString();
+      if (orderId == null || orderId.isEmpty) {
+        continue;
+      }
+      itemsByOrderId.putIfAbsent(orderId, () => <Map<String, dynamic>>[]).add(row);
+    }
+
+    final historyByOrderId = <String, List<Map<String, dynamic>>>{};
+    for (final item in historyResponse) {
+      final row = Map<String, dynamic>.from(item);
+      final orderId = row['order_id']?.toString();
+      if (orderId == null || orderId.isEmpty) {
+        continue;
+      }
+      historyByOrderId.putIfAbsent(orderId, () => <Map<String, dynamic>>[]).add(row);
+    }
+
+    return orderRows.map((row) {
+      final orderId = row['id']?.toString() ?? '';
+      return RemoteMapper.order({
+        ...row,
+        'order_items': itemsByOrderId[orderId] ?? const <Map<String, dynamic>>[],
+        'order_status_history': historyByOrderId[orderId] ?? const <Map<String, dynamic>>[],
+      });
+    }).toList();
+  }
 }
+

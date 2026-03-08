@@ -21,7 +21,7 @@ class SplashPage extends StatelessWidget {
               Icon(Icons.warehouse_outlined, size: 72, color: Colors.white),
               SizedBox(height: 16),
               Text(
-                'FlowStock WMS',
+                'Top Quality',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,

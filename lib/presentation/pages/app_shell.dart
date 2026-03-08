@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_enums.dart';
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
-import 'package:warehouse_manager_app/modules/auth/presentation/pages/login_page.dart';
-import 'package:warehouse_manager_app/modules/dashboard/presentation/pages/dashboard_page.dart';
-import 'package:warehouse_manager_app/modules/inventory/presentation/pages/inventory_page.dart';
-import 'package:warehouse_manager_app/modules/notifications/presentation/pages/notifications_page.dart';
-import 'package:warehouse_manager_app/modules/orders/presentation/pages/create_order_page.dart';
-import 'package:warehouse_manager_app/modules/orders/presentation/pages/order_detail_page.dart';
-import 'package:warehouse_manager_app/modules/orders/presentation/pages/orders_page.dart';
-import 'package:warehouse_manager_app/modules/reports/presentation/pages/reports_page.dart';
-import 'package:warehouse_manager_app/modules/users/presentation/pages/users_page.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
+import 'package:top_quality/modules/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:top_quality/modules/inventory/presentation/pages/inventory_page.dart';
+import 'package:top_quality/modules/notifications/presentation/pages/notifications_page.dart';
+import 'package:top_quality/modules/orders/presentation/pages/create_order_page.dart';
+import 'package:top_quality/modules/orders/presentation/pages/order_detail_page.dart';
+import 'package:top_quality/modules/orders/presentation/pages/orders_page.dart';
+import 'package:top_quality/modules/reports/presentation/pages/reports_page.dart';
+import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -183,3 +183,4 @@ class _AppDestination {
   final Widget page;
   final bool Function(AppUser user) visibleWhen;
 }
+

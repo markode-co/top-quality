@@ -1,4 +1,4 @@
-import 'package:warehouse_manager_app/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
 
 abstract class AuthRepository {
   Stream<AppUser?> watchSession();
@@ -9,3 +9,4 @@ abstract class AuthRepository {
   });
   Future<void> signOut();
 }
+

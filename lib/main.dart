@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/core/constants/app_constants.dart';
-import 'package:warehouse_manager_app/core/services/supabase_bootstrap.dart';
-import 'package:warehouse_manager_app/core/theme/app_theme.dart';
-import 'package:warehouse_manager_app/modules/auth/presentation/pages/login_page.dart';
-import 'package:warehouse_manager_app/presentation/pages/app_shell.dart';
-import 'package:warehouse_manager_app/presentation/pages/setup_required_page.dart';
-import 'package:warehouse_manager_app/presentation/pages/splash_page.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
+import 'package:top_quality/core/constants/app_constants.dart';
+import 'package:top_quality/core/services/supabase_bootstrap.dart';
+import 'package:top_quality/core/theme/app_theme.dart';
+import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
+import 'package:top_quality/presentation/pages/app_shell.dart';
+import 'package:top_quality/presentation/pages/setup_required_page.dart';
+import 'package:top_quality/presentation/pages/splash_page.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,3 +56,4 @@ class AppRoot extends ConsumerWidget {
     );
   }
 }
+

@@ -1,9 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/domain/entities/product.dart';
-import 'package:warehouse_manager_app/presentation/providers/app_providers.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/domain/entities/product.dart';
+import 'package:top_quality/presentation/providers/app_providers.dart';
 
 class CreateOrderPage extends ConsumerStatefulWidget {
   const CreateOrderPage({
@@ -257,3 +257,4 @@ class _DraftLine {
   String? productId;
   int quantity;
 }
+

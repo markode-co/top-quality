@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:warehouse_manager_app/main.dart';
+import 'package:top_quality/main.dart';
 
 void main() {
   testWidgets('renders setup required page without Supabase config', (tester) async {
@@ -17,3 +17,4 @@ void main() {
     expect(find.text('Supabase Configuration Required'), findsOneWidget);
   });
 }
+

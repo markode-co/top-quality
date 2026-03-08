@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:warehouse_manager_app/core/utils/formatters.dart';
-import 'package:warehouse_manager_app/domain/entities/order.dart';
-import 'package:warehouse_manager_app/presentation/widgets/common_widgets.dart';
+import 'package:top_quality/core/utils/formatters.dart';
+import 'package:top_quality/domain/entities/order.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class OrderCard extends StatelessWidget {
   const OrderCard({
@@ -89,3 +89,4 @@ class _Metric extends StatelessWidget {
     );
   }
 }
+
