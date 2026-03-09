@@ -22,4 +22,3 @@ class AppFormatters {
 
   static String compact(num value) => _compact.format(value);
 }
-

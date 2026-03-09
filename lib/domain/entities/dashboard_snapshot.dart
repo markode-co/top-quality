@@ -54,4 +54,3 @@ class EmployeeReport {
   final int ordersShipped;
   final int ordersReturned;
 }
-

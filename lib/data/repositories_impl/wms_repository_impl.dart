@@ -52,10 +52,7 @@ class WmsRepositoryImpl implements WmsRepository {
   }
 
   @override
-  Future<void> deleteOrder({
-    required AppUser actor,
-    required String orderId,
-  }) {
+  Future<void> deleteOrder({required AppUser actor, required String orderId}) {
     return _dataSource.deleteOrder(actor: actor, orderId: orderId);
   }
 
@@ -166,7 +163,8 @@ class WmsRepositoryImpl implements WmsRepository {
       _dataSource.watchDashboardSnapshot();
 
   @override
-  Stream<List<ActivityLog>> watchActivityLogs() => _dataSource.watchActivityLogs();
+  Stream<List<ActivityLog>> watchActivityLogs() =>
+      _dataSource.watchActivityLogs();
 
   @override
   Stream<List<EmployeeReport>> watchEmployeeReports() =>
@@ -185,4 +183,3 @@ class WmsRepositoryImpl implements WmsRepository {
   @override
   Stream<List<AppUser>> watchUsers() => _dataSource.watchUsers();
 }
-

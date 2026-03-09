@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
@@ -13,20 +14,28 @@ class UsersPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(currentUserProvider);
-    final canView = currentUser?.hasPermission(AppPermission.usersView) ?? false;
+    final canView =
+        currentUser?.hasPermission(AppPermission.usersView) ?? false;
     if (!canView) {
-      return const EmptyPlaceholder(
-        title: 'Restricted area',
-        subtitle: 'You do not have permission to access employee management.',
+      return EmptyPlaceholder(
+        title: context.t(en: 'Restricted area', ar: 'منطقة مقيدة'),
+        subtitle: context.t(
+          en: 'You do not have permission to access employee management.',
+          ar: 'ليس لديك صلاحية للوصول إلى إدارة الموظفين.',
+        ),
         icon: Icons.lock_outline,
       );
     }
 
-    final canCreate = currentUser?.hasPermission(AppPermission.usersCreate) ?? false;
-    final canEdit = currentUser?.hasPermission(AppPermission.usersEdit) ?? false;
-    final canDelete = currentUser?.hasPermission(AppPermission.usersDelete) ?? false;
+    final canCreate =
+        currentUser?.hasPermission(AppPermission.usersCreate) ?? false;
+    final canEdit =
+        currentUser?.hasPermission(AppPermission.usersEdit) ?? false;
+    final canDelete =
+        currentUser?.hasPermission(AppPermission.usersDelete) ?? false;
     final canAssign =
-        currentUser?.hasPermission(AppPermission.usersAssignPermissions) ?? false;
+        currentUser?.hasPermission(AppPermission.usersAssignPermissions) ??
+        false;
 
     final usersValue = ref.watch(usersProvider);
     final activityValue = ref.watch(activityLogsProvider);
@@ -43,7 +52,9 @@ class UsersPage extends ConsumerWidget {
                 child: FilledButton.icon(
                   onPressed: () => _openEmployeeDialog(context, ref),
                   icon: const Icon(Icons.person_add_alt_1_outlined),
-                  label: const Text('Create Employee'),
+                  label: Text(
+                    context.t(en: 'Create Employee', ar: 'إنشاء موظف'),
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
@@ -53,7 +64,7 @@ class UsersPage extends ConsumerWidget {
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(user.name),
                   subtitle: Text(
-                    '${user.email}\n${user.role.label} • ${user.isActive ? 'Active' : 'Inactive'}',
+                    '${user.email}\n${context.roleLabel(user.role)} • ${user.isActive ? context.t(en: 'Active', ar: 'نشط') : context.t(en: 'Inactive', ar: 'غير نشط')}',
                   ),
                   isThreeLine: true,
                   trailing: Wrap(
@@ -63,32 +74,49 @@ class UsersPage extends ConsumerWidget {
                       SizedBox(
                         width: 280,
                         child: Text(
-                          'Permissions: ${user.permissions.map((item) => item.code).join(', ')}',
+                          '${context.t(en: 'Permissions', ar: 'الصلاحيات')}: ${user.permissions.map((item) => item.code).join(', ')}',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         user.lastActive == null
-                            ? 'No recent activity'
+                            ? context.t(
+                                en: 'No recent activity',
+                                ar: 'لا يوجد نشاط حديث',
+                              )
                             : AppFormatters.shortDateTime(user.lastActive!),
                       ),
                       if (canEdit)
                         IconButton(
-                          onPressed: () => _openEmployeeDialog(context, ref, user: user),
+                          onPressed: () =>
+                              _openEmployeeDialog(context, ref, user: user),
                           icon: const Icon(Icons.edit_outlined),
+                          tooltip: context.t(
+                            en: 'Edit employee',
+                            ar: 'تعديل الموظف',
+                          ),
                         ),
                       if (canEdit)
                         IconButton(
                           onPressed: () => _toggleActive(ref, user),
                           icon: Icon(
-                            user.isActive ? Icons.person_off_outlined : Icons.person_outline,
+                            user.isActive
+                                ? Icons.person_off_outlined
+                                : Icons.person_outline,
                           ),
+                          tooltip: user.isActive
+                              ? context.t(en: 'Deactivate', ar: 'تعطيل')
+                              : context.t(en: 'Activate', ar: 'تفعيل'),
                         ),
                       if (canDelete)
                         IconButton(
                           onPressed: () => _deleteUser(ref, user.id),
                           icon: const Icon(Icons.delete_outline),
+                          tooltip: context.t(
+                            en: 'Delete employee',
+                            ar: 'حذف الموظف',
+                          ),
                         ),
                     ],
                   ),
@@ -97,22 +125,27 @@ class UsersPage extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             SectionPanel(
-              title: 'Recent Activity',
+              title: context.t(en: 'Recent Activity', ar: 'النشاط الأخير'),
               child: Column(
                 children: logs.take(12).map((log) {
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text('${log.actorName} • ${log.action}'),
-                    subtitle: Text('${log.entityType} • ${AppFormatters.shortDateTime(log.createdAt)}'),
+                    subtitle: Text(
+                      '${log.entityType} • ${AppFormatters.shortDateTime(log.createdAt)}',
+                    ),
                   );
                 }).toList(),
               ),
             ),
             if (!canAssign)
-              const Padding(
-                padding: EdgeInsets.only(top: 12),
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  'Permission assignment is disabled for your account.',
+                  context.t(
+                    en: 'Permission assignment is disabled for your account.',
+                    ar: 'تعيين الصلاحيات غير مفعّل لهذا الحساب.',
+                  ),
                 ),
               ),
           ],
@@ -138,38 +171,68 @@ class UsersPage extends ConsumerWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(user == null ? 'Create Employee' : 'Edit Employee'),
+          title: Text(
+            user == null
+                ? context.t(en: 'Create Employee', ar: 'إنشاء موظف')
+                : context.t(en: 'Edit Employee', ar: 'تعديل موظف'),
+          ),
           content: SingleChildScrollView(
             child: SizedBox(
               width: 520,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: context.t(en: 'Name', ar: 'الاسم'),
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: context.t(
+                        en: 'Email',
+                        ar: 'البريد الإلكتروني',
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: passwordController,
                     obscureText: true,
                     decoration: InputDecoration(
-                      labelText: user == null ? 'Password' : 'Password (leave blank to keep)',
+                      labelText: user == null
+                          ? context.t(en: 'Password', ar: 'كلمة المرور')
+                          : context.t(
+                              en: 'Password (leave blank to keep)',
+                              ar: 'كلمة المرور (اتركها فارغة للإبقاء)',
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<UserRole>(
                     initialValue: selectedRole,
                     items: UserRole.values
-                        .map((role) => DropdownMenuItem(value: role, child: Text(role.label)))
+                        .map(
+                          (role) => DropdownMenuItem(
+                            value: role,
+                            child: Text(context.roleLabel(role)),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (value) => setState(() => selectedRole = value ?? selectedRole),
-                    decoration: const InputDecoration(labelText: 'Role'),
+                    onChanged: (value) =>
+                        setState(() => selectedRole = value ?? selectedRole),
+                    decoration: InputDecoration(
+                      labelText: context.t(en: 'Role', ar: 'الدور'),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Permissions',
+                      context.t(en: 'Permissions', ar: 'الصلاحيات'),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
@@ -201,11 +264,11 @@ class UsersPage extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(context.t(en: 'Cancel', ar: 'إلغاء')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
+              child: Text(context.t(en: 'Save', ar: 'حفظ')),
             ),
           ],
         ),
@@ -229,9 +292,13 @@ class UsersPage extends ConsumerWidget {
     );
 
     if (user == null) {
-      await ref.read(operationsControllerProvider.notifier).createEmployee(payload);
+      await ref
+          .read(operationsControllerProvider.notifier)
+          .createEmployee(payload);
     } else {
-      await ref.read(operationsControllerProvider.notifier).updateEmployee(payload);
+      await ref
+          .read(operationsControllerProvider.notifier)
+          .updateEmployee(payload);
     }
 
     if (!context.mounted) {
@@ -241,14 +308,15 @@ class UsersPage extends ConsumerWidget {
   }
 
   Future<void> _toggleActive(WidgetRef ref, AppUser user) async {
-    await ref.read(operationsControllerProvider.notifier).deactivateEmployee(
-          employeeId: user.id,
-          isActive: !user.isActive,
-        );
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .deactivateEmployee(employeeId: user.id, isActive: !user.isActive);
   }
 
   Future<void> _deleteUser(WidgetRef ref, String userId) async {
-    await ref.read(operationsControllerProvider.notifier).deleteEmployee(userId);
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .deleteEmployee(userId);
   }
 
   void _showResult(BuildContext context, WidgetRef ref) {
@@ -256,10 +324,14 @@ class UsersPage extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          state.hasError ? state.error.toString() : 'Employee operation completed.',
+          state.hasError
+              ? state.error.toString()
+              : context.t(
+                  en: 'Employee operation completed.',
+                  ar: 'اكتملت عملية الموظف.',
+                ),
         ),
       ),
     );
   }
 }
-

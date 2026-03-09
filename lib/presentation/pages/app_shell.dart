@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
 import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
 import 'package:top_quality/modules/dashboard/presentation/pages/dashboard_page.dart';
@@ -12,6 +13,7 @@ import 'package:top_quality/modules/orders/presentation/pages/orders_page.dart';
 import 'package:top_quality/modules/reports/presentation/pages/reports_page.dart';
 import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/app_top_controls.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -30,31 +32,55 @@ class _AppShellState extends ConsumerState<AppShell> {
       return const LoginPage();
     }
 
-    final destinations = _buildDestinations(user);
-    if (_selectedIndex >= destinations.length) {
-      _selectedIndex = 0;
+    final destinations = _buildDestinations(context, user);
+    if (destinations.isEmpty) {
+      return _NoPermissionsScaffold(
+        user: user,
+        onSignOut: () => ref.read(authControllerProvider.notifier).signOut(),
+      );
     }
 
+    final safeIndex =
+        _selectedIndex >= 0 && _selectedIndex < destinations.length
+        ? _selectedIndex
+        : 0;
+    if (safeIndex != _selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _selectedIndex = safeIndex);
+      });
+    }
+
+    final currentDestination = destinations[safeIndex];
     final unreadCount = ref.watch(unreadNotificationsCountProvider);
     final wide = MediaQuery.of(context).size.width >= 1100;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(destinations[_selectedIndex].label),
+        title: Text(currentDestination.label),
         actions: [
-          Chip(label: Text(user.role.label)),
+          Chip(label: Text(context.roleLabel(user.role))),
+          const SizedBox(width: 8),
+          const LanguageToggle(),
+          const SizedBox(width: 8),
+          const ThemeModeToggle(),
           const SizedBox(width: 8),
           Badge(
             isLabelVisible: unreadCount > 0,
             label: Text('$unreadCount'),
             child: IconButton(
-              onPressed: () => _goTo('Notifications', destinations),
+              onPressed: () => _goTo('notifications', destinations),
               icon: const Icon(Icons.notifications_none_outlined),
+              tooltip: context.t(en: 'Notifications', ar: 'الإشعارات'),
             ),
           ),
           IconButton(
-            onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+            onPressed: () =>
+                ref.read(authControllerProvider.notifier).signOut(),
             icon: const Icon(Icons.logout),
+            tooltip: context.t(en: 'Sign out', ar: 'تسجيل الخروج'),
           ),
           const SizedBox(width: 12),
         ],
@@ -63,8 +89,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           ? Row(
               children: [
                 NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (value) => setState(() => _selectedIndex = value),
+                  selectedIndex: safeIndex,
+                  onDestinationSelected: (value) =>
+                      setState(() => _selectedIndex = value),
                   labelType: NavigationRailLabelType.all,
                   destinations: [
                     for (final item in destinations)
@@ -75,33 +102,40 @@ class _AppShellState extends ConsumerState<AppShell> {
                   ],
                 ),
                 const VerticalDivider(width: 1),
-                Expanded(child: destinations[_selectedIndex].page),
+                Expanded(child: currentDestination.page),
               ],
             )
-          : destinations[_selectedIndex].page,
+          : currentDestination.page,
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (value) => setState(() => _selectedIndex = value),
+              selectedIndex: safeIndex,
+              onDestinationSelected: (value) =>
+                  setState(() => _selectedIndex = value),
               destinations: [
                 for (final item in destinations)
-                  NavigationDestination(icon: Icon(item.icon), label: item.label),
+                  NavigationDestination(
+                    icon: Icon(item.icon),
+                    label: item.label,
+                  ),
               ],
             ),
     );
   }
 
-  List<_AppDestination> _buildDestinations(AppUser user) {
+  List<_AppDestination> _buildDestinations(BuildContext context, AppUser user) {
     final all = <_AppDestination>[
       _AppDestination(
-        label: 'Dashboard',
+        id: 'dashboard',
+        label: context.t(en: 'Dashboard', ar: 'لوحة التحكم'),
         icon: Icons.dashboard_outlined,
         page: DashboardPage(onOpenOrder: _openOrder),
-        visibleWhen: (candidate) => candidate.hasPermission(AppPermission.dashboardView),
+        visibleWhen: (candidate) =>
+            candidate.hasPermission(AppPermission.dashboardView),
       ),
       _AppDestination(
-        label: 'Orders',
+        id: 'orders',
+        label: context.t(en: 'Orders', ar: 'الطلبات'),
         icon: Icons.receipt_long_outlined,
         page: OrdersPage(
           onOpenOrder: _openOrder,
@@ -114,7 +148,8 @@ class _AppShellState extends ConsumerState<AppShell> {
             candidate.hasPermission(AppPermission.ordersShip),
       ),
       _AppDestination(
-        label: 'Inventory',
+        id: 'inventory',
+        label: context.t(en: 'Inventory', ar: 'المخزون'),
         icon: Icons.inventory_2_outlined,
         page: const InventoryPage(),
         visibleWhen: (candidate) =>
@@ -122,19 +157,24 @@ class _AppShellState extends ConsumerState<AppShell> {
             candidate.hasPermission(AppPermission.productsView),
       ),
       _AppDestination(
-        label: 'Reports',
+        id: 'reports',
+        label: context.t(en: 'Reports', ar: 'التقارير'),
         icon: Icons.assessment_outlined,
         page: const ReportsPage(),
-        visibleWhen: (candidate) => candidate.hasPermission(AppPermission.reportsView),
+        visibleWhen: (candidate) =>
+            candidate.hasPermission(AppPermission.reportsView),
       ),
       _AppDestination(
-        label: 'Notifications',
+        id: 'notifications',
+        label: context.t(en: 'Notifications', ar: 'الإشعارات'),
         icon: Icons.notifications_none_outlined,
         page: NotificationsPage(onOpenOrder: _openOrder),
-        visibleWhen: (candidate) => candidate.hasPermission(AppPermission.notificationsView),
+        visibleWhen: (candidate) =>
+            candidate.hasPermission(AppPermission.notificationsView),
       ),
       _AppDestination(
-        label: 'Employees',
+        id: 'employees',
+        label: context.t(en: 'Employees', ar: 'الموظفون'),
         icon: Icons.group_outlined,
         page: const UsersPage(),
         visibleWhen: (candidate) =>
@@ -146,8 +186,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     return all.where((item) => item.visibleWhen(user)).toList();
   }
 
-  void _goTo(String label, List<_AppDestination> destinations) {
-    final index = destinations.indexWhere((item) => item.label == label);
+  void _goTo(String destinationId, List<_AppDestination> destinations) {
+    final index = destinations.indexWhere((item) => item.id == destinationId);
     if (index >= 0) {
       setState(() => _selectedIndex = index);
     }
@@ -155,32 +195,96 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   Future<void> _openOrder(String orderId) {
     return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OrderDetailPage(orderId: orderId),
-      ),
+      MaterialPageRoute(builder: (_) => OrderDetailPage(orderId: orderId)),
     );
   }
 
   Future<void> _openCreateOrder() {
-    return Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const CreateOrderPage(),
-      ),
-    );
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CreateOrderPage()));
   }
 }
 
 class _AppDestination {
   const _AppDestination({
+    required this.id,
     required this.label,
     required this.icon,
     required this.page,
     required this.visibleWhen,
   });
 
+  final String id;
   final String label;
   final IconData icon;
   final Widget page;
   final bool Function(AppUser user) visibleWhen;
 }
 
+class _NoPermissionsScaffold extends StatelessWidget {
+  const _NoPermissionsScaffold({required this.user, required this.onSignOut});
+
+  final AppUser user;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(context.t(en: 'Top Quality ERP', ar: 'توب كواليتي ERP')),
+        actions: [
+          const LanguageToggle(),
+          const SizedBox(width: 8),
+          const ThemeModeToggle(),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onSignOut,
+            icon: const Icon(Icons.logout),
+            tooltip: context.t(en: 'Sign out', ar: 'تسجيل الخروج'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Card(
+            margin: const EdgeInsets.all(24),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 44),
+                  const SizedBox(height: 16),
+                  Text(
+                    context.t(
+                      en: 'No modules available for your account',
+                      ar: 'لا توجد وحدات متاحة لهذا الحساب',
+                    ),
+                    style: Theme.of(context).textTheme.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.t(
+                      en: 'Your account is authenticated, but no navigation modules are currently permitted. Contact your administrator.',
+                      ar: 'تم تسجيل الدخول بنجاح، لكن لا توجد صلاحيات تعرض وحدات داخل النظام. تواصل مع مدير النظام.',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${context.t(en: 'User', ar: 'المستخدم')}: ${user.email}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

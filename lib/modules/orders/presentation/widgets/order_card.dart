@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
@@ -49,9 +50,18 @@ class OrderCard extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  _Metric(label: 'Items', value: '${order.totalQuantity}'),
-                  _Metric(label: 'Revenue', value: AppFormatters.currency(order.totalRevenue)),
-                  _Metric(label: 'Profit', value: AppFormatters.currency(order.profit)),
+                  _Metric(
+                    label: context.t(en: 'Items', ar: 'الأصناف'),
+                    value: '${order.totalQuantity}',
+                  ),
+                  _Metric(
+                    label: context.t(en: 'Revenue', ar: 'الإيراد'),
+                    value: AppFormatters.currency(order.totalRevenue),
+                  ),
+                  _Metric(
+                    label: context.t(en: 'Profit', ar: 'الربح'),
+                    value: AppFormatters.currency(order.profit),
+                  ),
                 ],
               ),
               if (trailing != null) ...[
@@ -67,10 +77,7 @@ class OrderCard extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({
-    required this.label,
-    required this.value,
-  });
+  const _Metric({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -89,4 +96,3 @@ class _Metric extends StatelessWidget {
     );
   }
 }
-

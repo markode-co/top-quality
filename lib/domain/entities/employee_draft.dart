@@ -19,4 +19,3 @@ class EmployeeDraft {
   final Set<AppPermission> permissions;
   final bool isActive;
 }
-

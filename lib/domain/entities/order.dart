@@ -66,7 +66,8 @@ class OrderEntity {
   double get totalRevenue =>
       items.fold<double>(0, (sum, item) => sum + item.totalRevenue);
   double get profit => items.fold<double>(0, (sum, item) => sum + item.profit);
-  int get totalQuantity => items.fold<int>(0, (sum, item) => sum + item.quantity);
+  int get totalQuantity =>
+      items.fold<int>(0, (sum, item) => sum + item.quantity);
 
   OrderEntity copyWith({
     String? id,
@@ -94,4 +95,3 @@ class OrderEntity {
     );
   }
 }
-

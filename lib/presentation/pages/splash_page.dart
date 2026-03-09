@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
@@ -14,22 +15,30 @@ class SplashPage extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.warehouse_outlined, size: 72, color: Colors.white),
-              SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Image.asset(
+                  'assets/branding/logo.png',
+                  width: 102,
+                  height: 102,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Top Quality',
+                context.t(en: 'Top Quality', ar: 'توب كواليتي'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(height: 12),
-              SizedBox(
+              const SizedBox(height: 12),
+              const SizedBox(
                 width: 180,
                 child: LinearProgressIndicator(
                   minHeight: 6,

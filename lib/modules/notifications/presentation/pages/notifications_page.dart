@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class NotificationsPage extends ConsumerWidget {
-  const NotificationsPage({
-    super.key,
-    required this.onOpenOrder,
-  });
+  const NotificationsPage({super.key, required this.onOpenOrder});
 
   final ValueChanged<String> onOpenOrder;
 
@@ -19,9 +17,12 @@ class NotificationsPage extends ConsumerWidget {
     return notificationsValue.when(
       data: (notifications) {
         if (notifications.isEmpty) {
-          return const EmptyPlaceholder(
-            title: 'No notifications',
-            subtitle: 'Workflow and alert notifications will appear here.',
+          return EmptyPlaceholder(
+            title: context.t(en: 'No notifications', ar: 'لا توجد إشعارات'),
+            subtitle: context.t(
+              en: 'Workflow and alert notifications will appear here.',
+              ar: 'ستظهر إشعارات سير العمل والتنبيهات هنا.',
+            ),
           );
         }
 
@@ -43,9 +44,9 @@ class NotificationsPage extends ConsumerWidget {
                   onPressed: notification.isRead
                       ? null
                       : () => ref
-                          .read(operationsControllerProvider.notifier)
-                          .markNotificationRead(notification.id),
-                  child: const Text('Mark Read'),
+                            .read(operationsControllerProvider.notifier)
+                            .markNotificationRead(notification.id),
+                  child: Text(context.t(en: 'Mark Read', ar: 'تحديد كمقروء')),
                 ),
                 onTap: notification.referenceId?.startsWith('ORD-') == true
                     ? () => onOpenOrder(notification.referenceId!)
@@ -60,4 +61,3 @@ class NotificationsPage extends ConsumerWidget {
     );
   }
 }
-

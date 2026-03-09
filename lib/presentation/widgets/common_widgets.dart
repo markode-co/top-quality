@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 
 class StatCard extends StatelessWidget {
   const StatCard({
@@ -30,16 +31,33 @@ class StatCard extends StatelessWidget {
               backgroundColor: color.withValues(alpha: 0.14),
               child: Icon(icon, color: color),
             ),
-            const Spacer(),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(value, style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.topStart,
+                child: Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+                ),
+              ),
             ),
           ],
         ),
@@ -71,7 +89,10 @@ class SectionPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
                 ?trailing,
               ],
@@ -109,11 +130,11 @@ class StatusBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: Text(
-          status.name.toUpperCase(),
+          context.orderStatusShort(status),
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -148,8 +169,8 @@ class EmptyPlaceholder extends StatelessWidget {
               subtitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -157,4 +178,3 @@ class EmptyPlaceholder extends StatelessWidget {
     );
   }
 }
-

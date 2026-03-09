@@ -26,20 +26,9 @@ enum UserRole {
   }
 }
 
-enum OrderStatus {
-  entered,
-  checked,
-  approved,
-  shipped,
-  completed,
-  returned;
-}
+enum OrderStatus { entered, checked, approved, shipped, completed, returned }
 
-enum NotificationType {
-  workflow,
-  alert,
-  system;
-}
+enum NotificationType { workflow, alert, system }
 
 enum AppPermission {
   ordersView('orders_view'),

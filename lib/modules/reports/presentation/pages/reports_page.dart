@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
@@ -15,20 +16,38 @@ class ReportsPage extends ConsumerWidget {
         padding: const EdgeInsets.all(24),
         children: [
           SectionPanel(
-            title: 'Employee Reports',
+            title: context.t(en: 'Employee Reports', ar: 'تقارير الموظفين'),
             trailing: Wrap(
               spacing: 8,
               children: [
                 OutlinedButton(
-                  onPressed: () => _showExport(context, 'CSV Preview', _csv(reports)),
+                  onPressed: () => _showExport(
+                    context,
+                    context.t(en: 'CSV Preview', ar: 'معاينة CSV'),
+                    _csv(context, reports),
+                  ),
                   child: const Text('CSV'),
                 ),
                 OutlinedButton(
-                  onPressed: () => _showExport(context, 'Excel-ready Preview', _tsv(reports)),
+                  onPressed: () => _showExport(
+                    context,
+                    context.t(
+                      en: 'Excel-ready Preview',
+                      ar: 'معاينة جاهزة لـ Excel',
+                    ),
+                    _tsv(context, reports),
+                  ),
                   child: const Text('Excel'),
                 ),
                 OutlinedButton(
-                  onPressed: () => _showExport(context, 'PDF Narrative Preview', _pdf(reports)),
+                  onPressed: () => _showExport(
+                    context,
+                    context.t(
+                      en: 'PDF Narrative Preview',
+                      ar: 'معاينة PDF نصية',
+                    ),
+                    _pdf(context, reports),
+                  ),
                   child: const Text('PDF'),
                 ),
               ],
@@ -36,20 +55,32 @@ class ReportsPage extends ConsumerWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Employee')),
-                  DataColumn(label: Text('Role')),
-                  DataColumn(label: Text('Entered')),
-                  DataColumn(label: Text('Reviewed')),
-                  DataColumn(label: Text('Shipped')),
-                  DataColumn(label: Text('Returned')),
+                columns: [
+                  DataColumn(
+                    label: Text(context.t(en: 'Employee', ar: 'الموظف')),
+                  ),
+                  DataColumn(
+                    label: Text(context.t(en: 'Role', ar: 'الدور')),
+                  ),
+                  DataColumn(
+                    label: Text(context.t(en: 'Entered', ar: 'إدخال')),
+                  ),
+                  DataColumn(
+                    label: Text(context.t(en: 'Reviewed', ar: 'مراجعة')),
+                  ),
+                  DataColumn(
+                    label: Text(context.t(en: 'Shipped', ar: 'شحن')),
+                  ),
+                  DataColumn(
+                    label: Text(context.t(en: 'Returned', ar: 'مرتجع')),
+                  ),
                 ],
                 rows: reports
                     .map(
                       (report) => DataRow(
                         cells: [
                           DataCell(Text(report.userName)),
-                          DataCell(Text(report.role.label)),
+                          DataCell(Text(context.roleLabel(report.role))),
                           DataCell(Text('${report.ordersEntered}')),
                           DataCell(Text('${report.ordersReviewed}')),
                           DataCell(Text('${report.ordersShipped}')),
@@ -68,9 +99,12 @@ class ReportsPage extends ConsumerWidget {
     );
   }
 
-  static String _csv(List<dynamic> reports) {
+  static String _csv(BuildContext context, List<dynamic> reports) {
     final rows = <String>[
-      'employee,role,entered,reviewed,shipped,returned',
+      context.t(
+        en: 'employee,role,entered,reviewed,shipped,returned',
+        ar: 'الموظف,الدور,إدخال,مراجعة,شحن,مرتجع',
+      ),
       ...reports.map(
         (report) =>
             '${report.userName},${report.role.label},${report.ordersEntered},${report.ordersReviewed},${report.ordersShipped},${report.ordersReturned}',
@@ -79,9 +113,12 @@ class ReportsPage extends ConsumerWidget {
     return rows.join('\n');
   }
 
-  static String _tsv(List<dynamic> reports) {
+  static String _tsv(BuildContext context, List<dynamic> reports) {
     final rows = <String>[
-      'Employee\tRole\tEntered\tReviewed\tShipped\tReturned',
+      context.t(
+        en: 'Employee\tRole\tEntered\tReviewed\tShipped\tReturned',
+        ar: 'الموظف\tالدور\tإدخال\tمراجعة\tشحن\tمرتجع',
+      ),
       ...reports.map(
         (report) =>
             '${report.userName}\t${report.role.label}\t${report.ordersEntered}\t${report.ordersReviewed}\t${report.ordersShipped}\t${report.ordersReturned}',
@@ -90,14 +127,17 @@ class ReportsPage extends ConsumerWidget {
     return rows.join('\n');
   }
 
-  static String _pdf(List<dynamic> reports) {
+  static String _pdf(BuildContext context, List<dynamic> reports) {
     final lines = reports
         .map(
           (report) =>
               '${report.userName} (${report.role.label}) handled entered=${report.ordersEntered}, reviewed=${report.ordersReviewed}, shipped=${report.ordersShipped}, returned=${report.ordersReturned}.',
         )
         .join('\n');
-    return 'Operational report summary\n\n$lines';
+    return context.t(
+      en: 'Operational report summary\n\n$lines',
+      ar: 'ملخص التقرير التشغيلي\n\n$lines',
+    );
   }
 
   static Future<void> _showExport(
@@ -116,11 +156,10 @@ class ReportsPage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(context.t(en: 'Close', ar: 'إغلاق')),
           ),
         ],
       ),
     );
   }
 }
-

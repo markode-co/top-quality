@@ -5,7 +5,8 @@ import 'package:top_quality/core/constants/app_enums.dart';
 class SupabaseBootstrap {
   const SupabaseBootstrap._();
 
-  static AppMode get mode => isConfigured ? AppMode.live : AppMode.setupRequired;
+  static AppMode get mode =>
+      isConfigured ? AppMode.live : AppMode.setupRequired;
 
   static bool get isConfigured =>
       AppConstants.supabaseUrl.isNotEmpty &&
@@ -22,4 +23,3 @@ class SupabaseBootstrap {
     );
   }
 }
-

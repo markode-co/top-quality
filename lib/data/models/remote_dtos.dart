@@ -24,7 +24,8 @@ class RemoteMapper {
           .map(AppPermission.fromCode)
           .whereType<AppPermission>()
           .toSet(),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       isActive: json['is_active'] as bool? ?? true,
       lastActive: DateTime.tryParse(json['last_active']?.toString() ?? ''),
@@ -44,9 +45,13 @@ class RemoteMapper {
       purchasePrice: (json['purchase_price'] as num?)?.toDouble() ?? 0,
       salePrice: (json['sale_price'] as num?)?.toDouble() ?? 0,
       currentStock:
-          (inventory?['stock'] as num?)?.toInt() ?? (json['stock'] as num?)?.toInt() ?? 0,
+          (inventory?['stock'] as num?)?.toInt() ??
+          (json['stock'] as num?)?.toInt() ??
+          0,
       minStockLevel:
-          (inventory?['min_stock'] as num?)?.toInt() ?? (json['min_stock'] as num?)?.toInt() ?? 0,
+          (inventory?['min_stock'] as num?)?.toInt() ??
+          (json['min_stock'] as num?)?.toInt() ??
+          0,
     );
   }
 
@@ -59,7 +64,8 @@ class RemoteMapper {
       id: json['id'].toString(),
       customerName: json['customer_name']?.toString() ?? 'Unknown Customer',
       customerPhone: json['customer_phone']?.toString() ?? '',
-      orderDate: DateTime.tryParse(json['order_date']?.toString() ?? '') ??
+      orderDate:
+          DateTime.tryParse(json['order_date']?.toString() ?? '') ??
           DateTime.now(),
       notes: json['order_notes']?.toString(),
       status: _statusFromString(json['status']?.toString() ?? 'entered'),
@@ -69,11 +75,12 @@ class RemoteMapper {
           .whereType<Map>()
           .map((item) => orderItem(Map<String, dynamic>.from(item)))
           .toList(),
-      history: historyJson
-          .whereType<Map>()
-          .map((entry) => orderHistory(Map<String, dynamic>.from(entry)))
-          .toList()
-        ..sort((a, b) => a.changedAt.compareTo(b.changedAt)),
+      history:
+          historyJson
+              .whereType<Map>()
+              .map((entry) => orderHistory(Map<String, dynamic>.from(entry)))
+              .toList()
+            ..sort((a, b) => a.changedAt.compareTo(b.changedAt)),
     );
   }
 
@@ -92,7 +99,8 @@ class RemoteMapper {
       status: _statusFromString(json['status']?.toString() ?? 'entered'),
       changedBy: json['changed_by']?.toString() ?? '',
       changedByName: json['changed_by_name']?.toString() ?? 'System',
-      changedAt: DateTime.tryParse(json['changed_at']?.toString() ?? '') ??
+      changedAt:
+          DateTime.tryParse(json['changed_at']?.toString() ?? '') ??
           DateTime.now(),
       note: json['note']?.toString(),
     );
@@ -105,7 +113,8 @@ class RemoteMapper {
       title: json['title']?.toString() ?? '',
       message: json['message']?.toString() ?? '',
       type: _notificationTypeFromString(json['type']?.toString() ?? 'workflow'),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       isRead: json['read'] as bool? ?? false,
       referenceId: json['reference_id']?.toString(),
@@ -120,7 +129,8 @@ class RemoteMapper {
       action: json['action']?.toString() ?? '',
       entityType: json['entity_type']?.toString() ?? '',
       entityId: json['entity_id']?.toString(),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       metadata: json['metadata'] is Map<String, dynamic>
           ? json['metadata'] as Map<String, dynamic>
@@ -142,4 +152,3 @@ class RemoteMapper {
     );
   }
 }
-

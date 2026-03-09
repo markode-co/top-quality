@@ -28,11 +28,15 @@ class OrderWorkflowEngine {
   }) {
     final expected = _nextState[current];
     if (expected != next) {
-      throw AppException('Invalid state transition: ${current.name} -> ${next.name}.');
+      throw AppException(
+        'Invalid state transition: ${current.name} -> ${next.name}.',
+      );
     }
 
     if (!_canMoveTo(actor, next)) {
-      throw AppException('You do not have permission to move an order to ${next.name}.');
+      throw AppException(
+        'You do not have permission to move an order to ${next.name}.',
+      );
     }
   }
 
@@ -80,4 +84,3 @@ class OrderWorkflowEngine {
     }
   }
 }
-

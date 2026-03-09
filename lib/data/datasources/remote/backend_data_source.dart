@@ -11,10 +11,7 @@ import 'package:top_quality/domain/entities/product_draft.dart';
 abstract class BackendDataSource {
   Stream<AppUser?> watchSession();
   Future<AppUser?> getCurrentUser();
-  Future<void> signIn({
-    required String email,
-    required String password,
-  });
+  Future<void> signIn({required String email, required String password});
   Future<void> signOut();
   Stream<List<OrderEntity>> watchOrders();
   Stream<List<Product>> watchProducts();
@@ -38,10 +35,7 @@ abstract class BackendDataSource {
     required String? notes,
     required List<OrderItem> items,
   });
-  Future<void> deleteOrder({
-    required AppUser actor,
-    required String orderId,
-  });
+  Future<void> deleteOrder({required AppUser actor, required String orderId});
   Future<void> transitionOrder({
     required AppUser actor,
     required String orderId,
@@ -87,4 +81,3 @@ abstract class BackendDataSource {
   });
   Future<void> markNotificationRead(String notificationId);
 }
-

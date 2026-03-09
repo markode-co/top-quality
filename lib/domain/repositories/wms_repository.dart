@@ -31,10 +31,7 @@ abstract class WmsRepository {
     required String? notes,
     required List<OrderItem> items,
   });
-  Future<void> deleteOrder({
-    required AppUser actor,
-    required String orderId,
-  });
+  Future<void> deleteOrder({required AppUser actor, required String orderId});
   Future<void> transitionOrder({
     required AppUser actor,
     required String orderId,
@@ -80,4 +77,3 @@ abstract class WmsRepository {
   });
   Future<void> markNotificationRead(String notificationId);
 }
-

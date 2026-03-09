@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/modules/orders/presentation/widgets/order_card.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
@@ -48,9 +49,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Search by customer, phone, or order ID',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: context.t(
+                        en: 'Search by customer, phone, or order ID',
+                        ar: 'ابحث باسم العميل أو الهاتف أو رقم الطلب',
+                      ),
+                      prefixIcon: const Icon(Icons.search),
                     ),
                   ),
                 ),
@@ -59,7 +63,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   FilledButton.icon(
                     onPressed: widget.onCreateOrder,
                     icon: const Icon(Icons.add),
-                    label: const Text('New Order'),
+                    label: Text(context.t(en: 'New Order', ar: 'طلب جديد')),
                   ),
               ],
             ),
@@ -69,13 +73,13 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
               runSpacing: 8,
               children: [
                 FilterChip(
-                  label: const Text('All'),
+                  label: Text(context.t(en: 'All', ar: 'الكل')),
                   selected: _status == null,
                   onSelected: (_) => setState(() => _status = null),
                 ),
                 ...OrderStatus.values.map(
                   (status) => FilterChip(
-                    label: Text(status.name.toUpperCase()),
+                    label: Text(context.orderStatusLabel(status)),
                     selected: _status == status,
                     onSelected: (_) => setState(() => _status = status),
                   ),
@@ -84,11 +88,17 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
             ),
             const SizedBox(height: 16),
             if (filtered.isEmpty)
-              const SizedBox(
+              SizedBox(
                 height: 360,
                 child: EmptyPlaceholder(
-                  title: 'No matching orders',
-                  subtitle: 'Adjust the search query or status filter.',
+                  title: context.t(
+                    en: 'No matching orders',
+                    ar: 'لا توجد طلبات مطابقة',
+                  ),
+                  subtitle: context.t(
+                    en: 'Adjust the search query or status filter.',
+                    ar: 'عدّل البحث أو فلتر الحالة.',
+                  ),
                 ),
               )
             else
@@ -110,7 +120,8 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     final query = _searchController.text.trim().toLowerCase();
     return orders.where((order) {
       final matchesStatus = _status == null || order.status == _status;
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           order.id.toLowerCase().contains(query) ||
           order.customerName.toLowerCase().contains(query) ||
           order.customerPhone.toLowerCase().contains(query);
@@ -118,4 +129,3 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     }).toList();
   }
 }
-

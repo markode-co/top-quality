@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
+import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/modules/orders/presentation/pages/create_order_page.dart';
@@ -8,10 +9,7 @@ import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class OrderDetailPage extends ConsumerWidget {
-  const OrderDetailPage({
-    super.key,
-    required this.orderId,
-  });
+  const OrderDetailPage({super.key, required this.orderId});
 
   final String orderId;
 
@@ -19,10 +17,13 @@ class OrderDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final order = ref.watch(orderByIdProvider(orderId));
     if (order == null) {
-      return const Scaffold(
+      return Scaffold(
         body: EmptyPlaceholder(
-          title: 'Order not found',
-          subtitle: 'The selected order could not be loaded.',
+          title: context.t(en: 'Order not found', ar: 'الطلب غير موجود'),
+          subtitle: context.t(
+            en: 'The selected order could not be loaded.',
+            ar: 'تعذر تحميل الطلب المحدد.',
+          ),
         ),
       );
     }
@@ -40,25 +41,46 @@ class OrderDetailPage extends ConsumerWidget {
         padding: const EdgeInsets.all(24),
         children: [
           SectionPanel(
-            title: 'Overview',
+            title: context.t(en: 'Overview', ar: 'نظرة عامة'),
             trailing: StatusBadge(order.status),
             child: Wrap(
               spacing: 24,
               runSpacing: 12,
               children: [
-                _Info(label: 'Customer', value: order.customerName),
-                _Info(label: 'Phone', value: order.customerPhone),
-                _Info(label: 'Created By', value: order.createdByName),
-                _Info(label: 'Date', value: AppFormatters.shortDateTime(order.orderDate)),
-                _Info(label: 'Total Cost', value: AppFormatters.currency(order.totalCost)),
-                _Info(label: 'Revenue', value: AppFormatters.currency(order.totalRevenue)),
-                _Info(label: 'Profit', value: AppFormatters.currency(order.profit)),
+                _Info(
+                  label: context.t(en: 'Customer', ar: 'العميل'),
+                  value: order.customerName,
+                ),
+                _Info(
+                  label: context.t(en: 'Phone', ar: 'الهاتف'),
+                  value: order.customerPhone,
+                ),
+                _Info(
+                  label: context.t(en: 'Created By', ar: 'أنشأه'),
+                  value: order.createdByName,
+                ),
+                _Info(
+                  label: context.t(en: 'Date', ar: 'التاريخ'),
+                  value: AppFormatters.shortDateTime(order.orderDate),
+                ),
+                _Info(
+                  label: context.t(en: 'Total Cost', ar: 'إجمالي التكلفة'),
+                  value: AppFormatters.currency(order.totalCost),
+                ),
+                _Info(
+                  label: context.t(en: 'Revenue', ar: 'الإيراد'),
+                  value: AppFormatters.currency(order.totalRevenue),
+                ),
+                _Info(
+                  label: context.t(en: 'Profit', ar: 'الربح'),
+                  value: AppFormatters.currency(order.profit),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           SectionPanel(
-            title: 'Administration',
+            title: context.t(en: 'Administration', ar: 'الإدارة'),
             child: Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -71,7 +93,7 @@ class OrderDetailPage extends ConsumerWidget {
                       ),
                     ),
                     icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit Order'),
+                    label: Text(context.t(en: 'Edit Order', ar: 'تعديل الطلب')),
                   ),
                 if (canDelete)
                   OutlinedButton.icon(
@@ -79,26 +101,40 @@ class OrderDetailPage extends ConsumerWidget {
                         ? null
                         : () => _deleteOrder(context, ref, order.id),
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('Delete Order'),
+                    label: Text(context.t(en: 'Delete Order', ar: 'حذف الطلب')),
                   ),
                 if (canOverride)
                   PopupMenuButton<OrderStatus>(
-                    onSelected: (status) => _overrideOrder(context, ref, order.id, status),
+                    onSelected: (status) =>
+                        _overrideOrder(context, ref, order.id, status),
                     itemBuilder: (context) => [
                       for (final status in OrderStatus.values)
                         PopupMenuItem(
                           value: status,
-                          child: Text('Override to ${status.name.toUpperCase()}'),
+                          child: Text(
+                            context.t(
+                              en: 'Override to ${context.orderStatusLabel(status)}',
+                              ar: 'تجاوز إلى ${context.orderStatusLabel(status)}',
+                            ),
+                          ),
                         ),
                     ],
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.admin_panel_settings_outlined),
-                          SizedBox(width: 8),
-                          Text('Override Status'),
+                          const Icon(Icons.admin_panel_settings_outlined),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.t(
+                              en: 'Override Status',
+                              ar: 'تجاوز الحالة',
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -108,14 +144,19 @@ class OrderDetailPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           SectionPanel(
-            title: 'Order Items',
+            title: context.t(en: 'Order Items', ar: 'بنود الطلب'),
             child: Column(
               children: order.items
                   .map(
                     (item) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(item.productName),
-                      subtitle: Text('Qty ${item.quantity} • ${AppFormatters.currency(item.salePrice)}'),
+                      subtitle: Text(
+                        context.t(
+                          en: 'Qty ${item.quantity} • ${AppFormatters.currency(item.salePrice)}',
+                          ar: 'كمية ${item.quantity} • ${AppFormatters.currency(item.salePrice)}',
+                        ),
+                      ),
                       trailing: Text(AppFormatters.currency(item.totalRevenue)),
                     ),
                   )
@@ -124,15 +165,17 @@ class OrderDetailPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           SectionPanel(
-            title: 'Workflow Timeline',
+            title: context.t(en: 'Workflow Timeline', ar: 'سجل سير العمل'),
             child: Column(
               children: order.history
                   .map(
                     (entry) => ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.timeline),
-                      title: Text(entry.status.name.toUpperCase()),
-                      subtitle: Text('${entry.changedByName} • ${AppFormatters.shortDateTime(entry.changedAt)}'),
+                      title: Text(context.orderStatusLabel(entry.status)),
+                      subtitle: Text(
+                        '${entry.changedByName} • ${AppFormatters.shortDateTime(entry.changedAt)}',
+                      ),
                       trailing: entry.note == null ? null : Text(entry.note!),
                     ),
                   )
@@ -142,7 +185,7 @@ class OrderDetailPage extends ConsumerWidget {
           if (availableTransitions.isNotEmpty) ...[
             const SizedBox(height: 16),
             SectionPanel(
-              title: 'Next Actions',
+              title: context.t(en: 'Next Actions', ar: 'الخطوات التالية'),
               child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -153,7 +196,12 @@ class OrderDetailPage extends ConsumerWidget {
                             ? null
                             : () => _transition(context, ref, order, status),
                         icon: const Icon(Icons.sync_alt),
-                        label: Text('Move to ${status.name.toUpperCase()}'),
+                        label: Text(
+                          context.t(
+                            en: 'Move to ${context.orderStatusLabel(status)}',
+                            ar: 'نقل إلى ${context.orderStatusLabel(status)}',
+                          ),
+                        ),
                       ),
                     )
                     .toList(),
@@ -171,22 +219,28 @@ class OrderDetailPage extends ConsumerWidget {
     OrderEntity order,
     OrderStatus status,
   ) async {
-    await ref.read(operationsControllerProvider.notifier).transitionOrder(
-          order: order,
-          nextStatus: status,
-        );
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .transitionOrder(order: order, nextStatus: status);
     final state = ref.read(operationsControllerProvider);
     if (!context.mounted) {
       return;
     }
     if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(state.error.toString())));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order updated successfully.')),
+      SnackBar(
+        content: Text(
+          context.t(
+            en: 'Order updated successfully.',
+            ar: 'تم تحديث الطلب بنجاح.',
+          ),
+        ),
+      ),
     );
   }
 
@@ -196,22 +250,25 @@ class OrderDetailPage extends ConsumerWidget {
     String orderId,
     OrderStatus status,
   ) async {
-    await ref.read(operationsControllerProvider.notifier).overrideOrderStatus(
-          orderId: orderId,
-          nextStatus: status,
-        );
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .overrideOrderStatus(orderId: orderId, nextStatus: status);
     final state = ref.read(operationsControllerProvider);
     if (!context.mounted) {
       return;
     }
     if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(state.error.toString())));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Override applied.')),
+      SnackBar(
+        content: Text(
+          context.t(en: 'Override applied.', ar: 'تم تطبيق التجاوز.'),
+        ),
+      ),
     );
   }
 
@@ -226,9 +283,9 @@ class OrderDetailPage extends ConsumerWidget {
       return;
     }
     if (state.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(state.error.toString())));
       return;
     }
     Navigator.of(context).pop();
@@ -256,4 +313,3 @@ class _Info extends StatelessWidget {
     );
   }
 }
-

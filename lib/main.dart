@@ -21,15 +21,16 @@ class WarehouseApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final appLocale = ref.watch(appLocaleProvider);
+    final appThemeMode = ref.watch(appThemeModeProvider);
+
     return MaterialApp(
       title: AppConstants.appTitle,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      locale: const Locale('ar', 'EG'),
-      supportedLocales: const [
-        Locale('ar', 'EG'),
-        Locale('en', 'US'),
-      ],
+      themeMode: appThemeMode,
+      locale: appLocale,
+      supportedLocales: const [Locale('ar', 'EG'), Locale('en', 'US')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const AppRoot(),
       debugShowCheckedModeBanner: false,
@@ -50,10 +51,8 @@ class AppRoot extends ConsumerWidget {
     return session.when(
       data: (user) => user == null ? const LoginPage() : const AppShell(),
       loading: () => const SplashPage(),
-      error: (error, _) => Scaffold(
-        body: Center(child: Text(error.toString())),
-      ),
+      error: (error, _) =>
+          Scaffold(body: Center(child: Text(error.toString()))),
     );
   }
 }
-

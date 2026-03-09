@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/services/order_workflow_engine.dart';
@@ -22,6 +23,11 @@ import 'package:top_quality/domain/usecases/sign_out.dart';
 import 'package:top_quality/domain/usecases/transition_order.dart';
 
 final appModeProvider = Provider<AppMode>((ref) => SupabaseBootstrap.mode);
+
+final appLocaleProvider = StateProvider<Locale>(
+  (ref) => const Locale('ar', 'EG'),
+);
+final appThemeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 
 final backendConfiguredProvider = Provider<bool>(
   (ref) => ref.watch(appModeProvider) == AppMode.live,
@@ -106,27 +112,29 @@ final notificationsProvider = StreamProvider<List<AppNotification>>((ref) {
 });
 
 final unreadNotificationsCountProvider = Provider<int>((ref) {
-  final notifications = ref.watch(notificationsProvider).valueOrNull ?? const [];
+  final notifications =
+      ref.watch(notificationsProvider).valueOrNull ?? const [];
   return notifications.where((notification) => !notification.isRead).length;
 });
 
-final hasPermissionProvider = Provider.family<bool, AppPermission>((ref, permission) {
+final hasPermissionProvider = Provider.family<bool, AppPermission>((
+  ref,
+  permission,
+) {
   final user = ref.watch(currentUserProvider);
   return user?.hasPermission(permission) ?? false;
 });
 
-final availableTransitionsProvider = Provider.family<List<OrderStatus>, OrderEntity>(
-  (ref, order) {
-    final user = ref.watch(currentUserProvider);
-    if (user == null) {
-      return const [];
-    }
-    return ref.watch(workflowEngineProvider).availableTransitions(
-      actor: user,
-      current: order.status,
-    );
-  },
-);
+final availableTransitionsProvider =
+    Provider.family<List<OrderStatus>, OrderEntity>((ref, order) {
+      final user = ref.watch(currentUserProvider);
+      if (user == null) {
+        return const [];
+      }
+      return ref
+          .watch(workflowEngineProvider)
+          .availableTransitions(actor: user, current: order.status);
+    });
 
 final orderByIdProvider = Provider.family<OrderEntity?, String>((ref, id) {
   final orders = ref.watch(ordersProvider).valueOrNull ?? const [];
@@ -144,10 +152,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   final SignInUseCase _signIn;
   final SignOutUseCase _signOut;
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
       () => _signIn(email: email, password: password),
@@ -162,11 +167,11 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AsyncValue<void>>(
-  (ref) => AuthController(
-    ref.watch(signInUseCaseProvider),
-    ref.watch(signOutUseCaseProvider),
-  ),
-);
+      (ref) => AuthController(
+        ref.watch(signInUseCaseProvider),
+        ref.watch(signOutUseCaseProvider),
+      ),
+    );
 
 class OperationsController extends StateNotifier<AsyncValue<void>> {
   OperationsController(this._ref) : super(const AsyncData(null));
@@ -195,12 +200,12 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
   }) {
     return _run(
       (user) => _ref.read(createOrderUseCaseProvider)(
-            actor: user,
-            customerName: customerName,
-            customerPhone: customerPhone,
-            notes: notes,
-            items: items,
-          ),
+        actor: user,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        notes: notes,
+        items: items,
+      ),
     );
   }
 
@@ -212,7 +217,9 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required List<OrderItem> items,
   }) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).updateOrder(
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .updateOrder(
             actor: user,
             orderId: orderId,
             customerName: customerName,
@@ -225,10 +232,9 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> deleteOrder(String orderId) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).deleteOrder(
-            actor: user,
-            orderId: orderId,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .deleteOrder(actor: user, orderId: orderId),
     );
   }
 
@@ -239,11 +245,11 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
   }) {
     return _run(
       (user) => _ref.read(transitionOrderUseCaseProvider)(
-            actor: user,
-            order: order,
-            nextStatus: nextStatus,
-            note: note,
-          ),
+        actor: user,
+        order: order,
+        nextStatus: nextStatus,
+        note: note,
+      ),
     );
   }
 
@@ -253,7 +259,9 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     String? note,
   }) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).overrideOrderStatus(
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .overrideOrderStatus(
             actor: user,
             orderId: orderId,
             nextStatus: nextStatus,
@@ -264,19 +272,17 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> upsertProduct(ProductDraft product) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).upsertProduct(
-            actor: user,
-            product: product,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .upsertProduct(actor: user, product: product),
     );
   }
 
   Future<void> deleteProduct(String productId) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).deleteProduct(
-            actor: user,
-            productId: productId,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .deleteProduct(actor: user, productId: productId),
     );
   }
 
@@ -286,7 +292,9 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String reason,
   }) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).adjustInventory(
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .adjustInventory(
             actor: user,
             productId: productId,
             quantityDelta: quantityDelta,
@@ -297,19 +305,17 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> createEmployee(EmployeeDraft employee) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).createEmployee(
-            actor: user,
-            employee: employee,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .createEmployee(actor: user, employee: employee),
     );
   }
 
   Future<void> updateEmployee(EmployeeDraft employee) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).updateEmployee(
-            actor: user,
-            employee: employee,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .updateEmployee(actor: user, employee: employee),
     );
   }
 
@@ -318,7 +324,9 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required bool isActive,
   }) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).deactivateEmployee(
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .deactivateEmployee(
             actor: user,
             employeeId: employeeId,
             isActive: isActive,
@@ -328,23 +336,22 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> deleteEmployee(String employeeId) {
     return _run(
-      (user) => _ref.read(wmsRepositoryProvider).deleteEmployee(
-            actor: user,
-            employeeId: employeeId,
-          ),
+      (user) => _ref
+          .read(wmsRepositoryProvider)
+          .deleteEmployee(actor: user, employeeId: employeeId),
     );
   }
 
   Future<void> markNotificationRead(String notificationId) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => _ref.read(wmsRepositoryProvider).markNotificationRead(notificationId),
+      () =>
+          _ref.read(wmsRepositoryProvider).markNotificationRead(notificationId),
     );
   }
 }
 
 final operationsControllerProvider =
     StateNotifierProvider<OperationsController, AsyncValue<void>>(
-  (ref) => OperationsController(ref),
-);
-
+      (ref) => OperationsController(ref),
+    );

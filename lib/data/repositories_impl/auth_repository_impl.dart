@@ -11,10 +11,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<AppUser?> getCurrentUser() => _dataSource.getCurrentUser();
 
   @override
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) {
+  Future<void> signIn({required String email, required String password}) {
     return _dataSource.signIn(email: email, password: password);
   }
 
@@ -24,4 +21,3 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Stream<AppUser?> watchSession() => _dataSource.watchSession();
 }
-

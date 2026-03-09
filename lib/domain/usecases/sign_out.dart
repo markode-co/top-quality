@@ -7,4 +7,3 @@ class SignOutUseCase {
 
   Future<void> call() => _repository.signOut();
 }
-
