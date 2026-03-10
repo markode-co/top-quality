@@ -28,26 +28,17 @@ class SupabaseBackendDataSource implements BackendDataSource {
 
   @override
   Future<AppUser?> getCurrentUser() async {
+    final rpcProfile = await _fetchCurrentUserViaRpc();
+    if (rpcProfile != null) {
+      return rpcProfile;
+    }
+
     final authUser = _client.auth.currentUser;
     if (authUser == null) {
       return null;
     }
 
-    try {
-      final response = await _client
-          .from('v_users_with_permissions')
-          .select()
-          .eq('id', authUser.id)
-          .maybeSingle();
-
-      if (response == null) {
-        return null;
-      }
-
-      return RemoteMapper.appUser(Map<String, dynamic>.from(response));
-    } catch (_) {
-      return _fetchCurrentUserCompat(authUser.id);
-    }
+    return _fetchCurrentUserCompat(authUser.id);
   }
 
   @override
@@ -63,13 +54,21 @@ class SupabaseBackendDataSource implements BackendDataSource {
 
     try {
       try {
-        await _rpcWithAuthRetry('record_user_login');
+        await _executeUserLoginAndActivity(response.user!);
       } catch (error) {
         if (!_isRecordLoginConflict(error)) {
           rethrow;
         }
       }
-      final profile = await getCurrentUser();
+      var profile = await getCurrentUser();
+      if (profile == null) {
+        try {
+          await _rpcWithAuthRetry('ensure_current_user_profile');
+          profile = await getCurrentUser();
+        } catch (_) {
+          // Fall through to the existing friendly error below.
+        }
+      }
       if (profile == null) {
         throw AppException(
           'The authentication account exists, but no employee profile was found in the users table.',
@@ -350,8 +349,6 @@ class SupabaseBackendDataSource implements BackendDataSource {
     String? employeeId,
     bool? isActive,
   }) async {
-    _ensureAuthenticatedSession();
-
     final payload = <String, dynamic>{
       'action': action,
       'employeeId': employeeId ?? employee?.id,
@@ -410,32 +407,55 @@ class SupabaseBackendDataSource implements BackendDataSource {
         'Unauthorized request to employee manager. Confirm your session is active and your account has employee management permissions.',
       );
     }
+    if (status == 403) {
+      throw AppException(
+        'Your account does not have permission to manage employees in the current company.',
+      );
+    }
+    if (status == 500) {
+      throw AppException(
+        'Employee manager function is missing required Supabase environment variables.',
+      );
+    }
 
     _throwEmployeeManagerErrorIfAny(response);
   }
 
   Future<String?> _resolveAccessToken({bool forceRefresh = false}) async {
+    final currentSession = _client.auth.currentSession;
+
     if (!forceRefresh) {
-      final existing = _client.auth.currentSession?.accessToken;
+      final existing = currentSession?.accessToken;
       if (existing != null && existing.isNotEmpty) {
-        return existing;
+        if (currentSession?.isExpired == true) {
+          forceRefresh = true;
+        } else {
+          return existing;
+        }
       }
     }
 
-    try {
-      final refreshResponse = await _client.auth.refreshSession();
-      final refreshed = refreshResponse.session?.accessToken;
-      if (refreshed != null && refreshed.isNotEmpty) {
-        return refreshed;
+    if (forceRefresh || currentSession?.isExpired == true) {
+      try {
+        final refreshResponse = await _client.auth.refreshSession();
+        final refreshed = refreshResponse.session?.accessToken;
+        if (refreshed != null && refreshed.isNotEmpty) {
+          return refreshed;
+        }
+      } catch (_) {
+        // Ignore and fallback to in-memory session token.
       }
-    } catch (_) {
-      // Ignore and fallback to in-memory session token.
+
+      if (forceRefresh) {
+        return null;
+      }
     }
 
     final fallback = _client.auth.currentSession?.accessToken;
     if (fallback != null && fallback.isNotEmpty) {
       return fallback;
     }
+
     return null;
   }
 
@@ -458,8 +478,8 @@ class SupabaseBackendDataSource implements BackendDataSource {
 
   Future<dynamic> _invokeEmployeeManagerRequestWithClientSession(
     Map<String, dynamic> payload,
-  ) {
-    final accessToken = _client.auth.currentSession?.accessToken;
+  ) async {
+    final accessToken = await _resolveAccessToken(forceRefresh: true);
     if (accessToken == null || accessToken.isEmpty) {
       throw AppException('Your session has expired. Please sign in again.');
     }
@@ -493,6 +513,16 @@ class SupabaseBackendDataSource implements BackendDataSource {
         'Unauthorized request to employee manager. Confirm your session is active and your account has employee management permissions.',
       );
     }
+    if (status == 403) {
+      throw AppException(
+        'Your account does not have permission to manage employees in the current company.',
+      );
+    }
+    if (status == 500) {
+      throw AppException(
+        'Employee manager function is missing required Supabase environment variables.',
+      );
+    }
 
     final payload = response?.data;
     if (payload is Map<String, dynamic> && payload['error'] != null) {
@@ -515,6 +545,12 @@ class SupabaseBackendDataSource implements BackendDataSource {
     if (error.status == 401) {
       return 'Unauthorized request to employee manager. Confirm your session is active and your account has employee management permissions.';
     }
+    if (error.status == 403) {
+      return 'Your account does not have permission to manage employees in the current company.';
+    }
+    if (error.status == 500) {
+      return 'Employee manager function is missing required Supabase environment variables.';
+    }
     final details = error.details;
     if (details is Map && details['error'] != null) {
       return details['error'].toString();
@@ -525,18 +561,15 @@ class SupabaseBackendDataSource implements BackendDataSource {
     return error.reasonPhrase ?? error.toString();
   }
 
-  void _ensureAuthenticatedSession() {
-    final token = _client.auth.currentSession?.accessToken;
-    if (token == null || token.isEmpty) {
-      throw AppException('Your session has expired. Please sign in again.');
-    }
-  }
-
   Future<dynamic> _rpcWithAuthRetry(
     String functionName, {
     Map<String, dynamic>? params,
   }) async {
-    _ensureAuthenticatedSession();
+    final accessToken = await _resolveAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      throw AppException('Your session has expired. Please sign in again.');
+    }
+
     try {
       return await _client.rpc(functionName, params: params);
     } on PostgrestException catch (error) {
@@ -558,6 +591,34 @@ class SupabaseBackendDataSource implements BackendDataSource {
         rethrow;
       }
     }
+  }
+
+  Future<void> _executeUserLoginAndActivity(User user) async {
+    await _rpcWithAuthRetry(
+      'record_user_login',
+      params: {
+        'p_user_id': user.id,
+      },
+    );
+
+    try {
+      await _recordLoginActivity(user);
+    } catch (_) {
+      // Audit logging must not block a valid login session.
+    }
+  }
+
+  Future<void> _recordLoginActivity(User user) async {
+    await _rpcWithAuthRetry(
+      'write_activity_log',
+      params: {
+        'p_actor_id': user.id,
+        'p_action': 'Login',
+        'p_entity_type': 'User',
+        'p_entity_id': user.id,
+        'p_metadata': <String, dynamic>{},
+      },
+    );
   }
 
   Stream<T> _watchComputed<T>({
@@ -605,18 +666,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
   }
 
   Future<List<AppUser>> _fetchUsers() async {
-    try {
-      final response = await _client
-          .from('v_users_with_permissions')
-          .select()
-          .order('created_at', ascending: false);
-
-      return response
-          .map((row) => RemoteMapper.appUser(Map<String, dynamic>.from(row)))
-          .toList();
-    } catch (_) {
-      return _fetchUsersCompat();
-    }
+    return _fetchUsersCompat();
   }
 
   Future<List<Product>> _fetchProducts() async {
@@ -668,14 +718,43 @@ class SupabaseBackendDataSource implements BackendDataSource {
   Future<List<ActivityLog>> _fetchActivityLogs() async {
     final response = await _client
         .from('activity_logs')
-        .select(
-          'id, actor_id, actor_name, action, entity_type, entity_id, metadata, created_at',
-        )
+        .select('id, actor_id, action, entity_type, entity_id, metadata, created_at')
         .order('created_at', ascending: false)
         .limit(40);
 
-    return response
-        .map((row) => RemoteMapper.activityLog(Map<String, dynamic>.from(row)))
+    final rows = response.map((row) => Map<String, dynamic>.from(row)).toList();
+    if (rows.isEmpty) {
+      return const [];
+    }
+
+    final actorIds = rows
+        .map((row) => row['actor_id']?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final usersResponse = actorIds.isEmpty
+        ? const []
+        : await _client
+              .from('users')
+              .select('id, name')
+              .inFilter('id', actorIds);
+
+    final actorNamesById = <String, String>{
+      for (final item in usersResponse)
+        item['id'].toString(): item['name']?.toString() ?? 'Unknown User',
+    };
+
+    return rows
+        .map(
+          (row) => RemoteMapper.activityLog({
+            ...row,
+            'actor_name':
+                actorNamesById[row['actor_id']?.toString() ?? ''] ??
+                'Unknown User',
+          }),
+        )
         .toList();
   }
 
@@ -792,7 +871,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
   String _friendlyAuthError(Object error) {
     final message = error.toString();
     if (message.contains('record_user_login')) {
-      return 'Supabase migration is incomplete. Apply the SQL schema so record_user_login() is available.';
+      return 'Supabase migration is incomplete. Apply the SQL schema so record_user_login(p_user_id) is available.';
     }
     if (message.contains('no employee profile')) {
       return 'Signed-in user has no employee profile. Insert the user into public.users with an assigned role.';
@@ -836,7 +915,10 @@ class SupabaseBackendDataSource implements BackendDataSource {
     return code == 'pgrst202' ||
         code == 'pgrst204' ||
         message.contains('function public.upsert_product') ||
+        message.contains('function public.write_activity_log') ||
         message.contains('could not find the function') ||
+        message.contains('argument') ||
+        message.contains('parameter') ||
         message.contains('invalid input syntax') ||
         details.contains('function') ||
         details.contains('parameter') ||
@@ -849,6 +931,38 @@ class SupabaseBackendDataSource implements BackendDataSource {
       return null;
     }
     return users.first;
+  }
+
+  Future<AppUser?> _fetchCurrentUserViaRpc() async {
+    try {
+      final response = await _rpcWithAuthRetry('get_current_user_profile');
+      if (response == null) {
+        return null;
+      }
+      if (response is Map) {
+        final payload = Map<String, dynamic>.from(response);
+        final roleName = payload['role_name']?.toString().trim() ?? '';
+        final permissions = payload['permissions'];
+        if (permissions is List) {
+          payload['permissions'] = {
+            for (final item in permissions)
+              ..._expandPermissionAliases(item.toString()),
+          }.toList();
+        }
+
+        final user = RemoteMapper.appUser(payload);
+        if (roleName.isEmpty && (payload['role_id']?.toString().isNotEmpty ?? false)) {
+          return null;
+        }
+        if (user.role != UserRole.admin && user.permissions.isEmpty) {
+          return null;
+        }
+        return user;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<AppUser>> _fetchUsersCompat({String? userId}) async {
@@ -940,7 +1054,9 @@ class SupabaseBackendDataSource implements BackendDataSource {
           permissionCode.isEmpty) {
         continue;
       }
-      permissionsByUserId.putIfAbsent(id, () => <String>[]).add(permissionCode);
+      permissionsByUserId
+          .putIfAbsent(id, () => <String>[])
+          .addAll(_expandPermissionAliases(permissionCode));
     }
 
     final permissionsByRoleId = <String, List<String>>{};
@@ -956,19 +1072,21 @@ class SupabaseBackendDataSource implements BackendDataSource {
       }
       permissionsByRoleId
           .putIfAbsent(roleId, () => <String>[])
-          .add(permissionCode);
+          .addAll(_expandPermissionAliases(permissionCode));
     }
 
     return userRows.map((row) {
       final id = row['id']?.toString() ?? '';
       final roleId = row['role_id']?.toString() ?? '';
+      final roleName = roleNamesById[roleId] ?? '';
       final effectivePermissions = {
         ...?permissionsByRoleId[roleId],
         ...?permissionsByUserId[id],
       }.toList();
+
       return RemoteMapper.appUser({
         ...row,
-        'role_name': roleNamesById[roleId] ?? '',
+        'role_name': roleName,
         'permissions': effectivePermissions,
       });
     }).toList();
@@ -1010,6 +1128,73 @@ class SupabaseBackendDataSource implements BackendDataSource {
       return null;
     }
     return permissionCodeById[permissionId];
+  }
+
+  List<String> _expandPermissionAliases(String permissionCode) {
+    switch (permissionCode) {
+      case 'read':
+        return const [
+          'read',
+          'dashboard_view',
+          'notifications_view',
+          'orders_view',
+          'inventory_view',
+          'products_view',
+          'reports_view',
+          'users_view',
+        ];
+      case 'write':
+        return const [
+          'write',
+          'orders_create',
+          'orders_edit',
+          'inventory_edit',
+          'products_create',
+          'products_edit',
+        ];
+      case 'delete':
+        return const [
+          'delete',
+          'orders_delete',
+          'products_delete',
+          'users_delete',
+        ];
+      case 'manage_users':
+        return const [
+          'manage_users',
+          'users_view',
+          'users_create',
+          'users_edit',
+          'users_delete',
+          'users_assign_permissions',
+        ];
+      case 'manage_inventory':
+        return const [
+          'manage_inventory',
+          'inventory_view',
+          'inventory_edit',
+          'products_view',
+          'products_create',
+          'products_edit',
+          'products_delete',
+        ];
+      case 'orders_read':
+        return const ['orders_read', 'orders_view'];
+      case 'orders_write':
+        return const ['orders_write', 'orders_view', 'orders_create', 'orders_edit'];
+      case 'inventory_read':
+        return const ['inventory_read', 'inventory_view', 'products_view'];
+      case 'inventory_write':
+        return const [
+          'inventory_write',
+          'inventory_view',
+          'inventory_edit',
+          'products_view',
+          'products_edit',
+        ];
+      default:
+        return [permissionCode];
+    }
   }
 
   Future<List<Product>> _fetchProductsCompat() async {

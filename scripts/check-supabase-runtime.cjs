@@ -35,8 +35,8 @@ async function main() {
     ["order_items", "id,order_id,product_id,quantity,purchase_price,sale_price"],
     ["order_status_history", "id,order_id,status,changed_by,changed_at"],
     ["notifications", "id,user_id,title,message,read,company_id"],
-    ["activity_logs", "id,actor_id,actor_name,action,entity_type,metadata,company_id"],
-    ["v_users_with_permissions", "id,name,email,role_id,role_name,is_active,permissions,company_id,branch_id"],
+    ["activity_logs", "id,actor_id,action,entity_type,entity_id,metadata,created_at"],
+    ["v_users_with_permissions", "id,name,email,role_name,permission_code"],
     ["v_products", "id,name,sku,category,purchase_price,sale_price,stock,min_stock,company_id,branch_id"],
   ];
 
@@ -52,7 +52,12 @@ async function main() {
   }
 
   const rpcChecks = [
-    ["record_user_login", {}],
+    [
+      "record_user_login",
+      {
+        p_user_id: "00000000-0000-0000-0000-000000000000",
+      },
+    ],
     [
       "create_order",
       {
@@ -117,7 +122,7 @@ async function main() {
         p_actor_id: "00000000-0000-0000-0000-000000000000",
         p_action: "smoke_test",
         p_entity_type: "diagnostics",
-        p_entity_id: "runtime-check",
+        p_entity_id: "00000000-0000-0000-0000-000000000000",
         p_metadata: {},
       },
     ],
@@ -240,6 +245,11 @@ function recordRpcResult(label, result, failures) {
 }
 
 function recordFunctionResult(label, result, failures) {
+  if (result.status === 401) {
+    console.log(`[warn] ${label} (HTTP 401 without user JWT)`);
+    return;
+  }
+
   if (result.status !== 404 && !looksLikeMissingFunctionRoute(result)) {
     console.log(`[ok] ${label}`);
     return;

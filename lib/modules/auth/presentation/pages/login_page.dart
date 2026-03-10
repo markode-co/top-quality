@@ -81,6 +81,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 24),
                     TextField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email,
+                      ],
                       decoration: InputDecoration(
                         labelText: context.t(
                           en: 'Email',
@@ -92,6 +97,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
+                      keyboardType: TextInputType.visiblePassword,
+                      autofillHints: const [AutofillHints.password],
                       decoration: InputDecoration(
                         labelText: context.t(en: 'Password', ar: 'كلمة المرور'),
                       ),

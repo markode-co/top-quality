@@ -32,7 +32,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-
+  
+  auth0_flutter: ^2.0.0-beta.1
   collection: ^1.19.1
   cupertino_icons: ^1.0.8
   fl_chart: ^1.1.1

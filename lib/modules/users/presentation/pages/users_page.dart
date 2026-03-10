@@ -184,6 +184,8 @@ class UsersPage extends ConsumerWidget {
                 children: [
                   TextField(
                     controller: nameController,
+                    keyboardType: TextInputType.name,
+                    autofillHints: const [AutofillHints.name],
                     decoration: InputDecoration(
                       labelText: context.t(en: 'Name', ar: 'الاسم'),
                     ),
@@ -191,6 +193,8 @@ class UsersPage extends ConsumerWidget {
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
                     decoration: InputDecoration(
                       labelText: context.t(
                         en: 'Email',
@@ -202,6 +206,8 @@ class UsersPage extends ConsumerWidget {
                   TextField(
                     controller: passwordController,
                     obscureText: true,
+                    keyboardType: TextInputType.visiblePassword,
+                    autofillHints: const [AutofillHints.newPassword],
                     decoration: InputDecoration(
                       labelText: user == null
                           ? context.t(en: 'Password', ar: 'كلمة المرور')

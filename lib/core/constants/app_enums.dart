@@ -12,13 +12,24 @@ enum UserRole {
 
   static UserRole fromRoleName(String value) {
     switch (value.toLowerCase()) {
+      case 'order entry user':
+      case 'order entry':
+      case 'employee':
+      case 'viewer':
+        return UserRole.orderEntry;
       case 'order reviewer':
       case 'reviewer':
+      case 'manager':
         return UserRole.reviewer;
       case 'shipping user':
       case 'shipping':
         return UserRole.shipping;
       case 'admin':
+        return UserRole.admin;
+      case 'system administrator':
+      case 'administrator':
+      case 'super admin':
+      case 'superadmin':
         return UserRole.admin;
       default:
         return UserRole.orderEntry;

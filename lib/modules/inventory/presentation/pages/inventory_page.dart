@@ -187,6 +187,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
               children: [
                 TextField(
                   controller: nameController,
+                  keyboardType: TextInputType.name,
+                  autofillHints: const [AutofillHints.name],
                   decoration: InputDecoration(
                     labelText: context.t(en: 'Name', ar: 'الاسم'),
                   ),
@@ -194,11 +196,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: skuController,
+                  keyboardType: TextInputType.text,
                   decoration: const InputDecoration(labelText: 'SKU'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: categoryController,
+                  keyboardType: TextInputType.text,
                   decoration: InputDecoration(
                     labelText: context.t(en: 'Category', ar: 'الفئة'),
                   ),
@@ -206,6 +210,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: purchaseController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Purchase Price (EGP)',
@@ -216,6 +221,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: saleController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Sale Price (EGP)',
@@ -226,6 +232,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: stockController,
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Current Stock',
@@ -236,6 +243,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: minStockController,
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Minimum Stock',
@@ -264,6 +272,30 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       return;
     }
 
+    final purchasePrice = double.tryParse(purchaseController.text.trim());
+    final salePrice = double.tryParse(saleController.text.trim());
+    final stock = int.tryParse(stockController.text.trim());
+    final minStockLevel = int.tryParse(minStockController.text.trim());
+
+    if (purchasePrice == null ||
+        salePrice == null ||
+        stock == null ||
+        minStockLevel == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                en: 'Invalid numeric value. Check prices and stock fields.',
+                ar: 'رقم غير صالح. راجع حقول الأسعار والمخزون.',
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     await ref
         .read(operationsControllerProvider.notifier)
         .upsertProduct(
@@ -272,10 +304,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             name: nameController.text.trim(),
             sku: skuController.text.trim(),
             category: categoryController.text.trim(),
-            purchasePrice: double.parse(purchaseController.text.trim()),
-            salePrice: double.parse(saleController.text.trim()),
-            stock: int.parse(stockController.text.trim()),
-            minStockLevel: int.parse(minStockController.text.trim()),
+            purchasePrice: purchasePrice,
+            salePrice: salePrice,
+            stock: stock,
+            minStockLevel: minStockLevel,
           ),
         );
 
@@ -308,6 +340,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             children: [
               TextField(
                 controller: qtyController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: context.t(
                     en: 'Quantity Delta (+/-)',
@@ -318,6 +351,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
+                keyboardType: TextInputType.text,
                 decoration: InputDecoration(
                   labelText: context.t(en: 'Reason', ar: 'السبب'),
                 ),
@@ -342,11 +376,28 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       return;
     }
 
+    final quantityDelta = int.tryParse(qtyController.text.trim());
+    if (quantityDelta == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                en: 'Invalid quantity value.',
+                ar: 'رقم الكمية غير صالح.',
+              ),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     await ref
         .read(operationsControllerProvider.notifier)
         .adjustInventory(
           productId: product.id,
-          quantityDelta: int.parse(qtyController.text.trim()),
+          quantityDelta: quantityDelta,
           reason: reasonController.text.trim(),
         );
 
