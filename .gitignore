@@ -48,3 +48,4 @@ app.*.map.json
 *.local.ps1
 *.local.json
 *.local.env
+node_modules
