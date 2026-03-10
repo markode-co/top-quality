@@ -11,7 +11,7 @@
     "netlify:web:build": "node ./scripts/build-netlify-web.cjs",
     "netlify:web:deploy": "npx netlify deploy --dir=build/web --prod",
     "netlify:web:prepare": "node ./scripts/prepare-netlify-web.cjs",
-    "supabase:web:build": "flutter build web --release --base-href /",
+    "supabase:web:build": "flutter build web --release --base-href / --dart-define-from-file=supabase.functions.local.env",
     "supabase:runtime:check": "node ./scripts/check-supabase-runtime.cjs",
     "supabase:web:upload": "node ./scripts/upload-supabase-web.cjs",
     "supabase:web:deploy": "npm run supabase:web:build && npm run supabase:web:upload",

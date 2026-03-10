@@ -20,16 +20,33 @@ class RemoteMapper {
       email: json['email']?.toString() ?? '',
       roleId: json['role_id']?.toString() ?? '',
       role: UserRole.fromRoleName(json['role_name']?.toString() ?? ''),
-      permissions: permissionList
-          .map(AppPermission.fromCode)
-          .whereType<AppPermission>()
-          .toSet(),
+      permissions: _resolvePermissions(
+        permissionList: permissionList,
+        roleName: json['role_name']?.toString() ?? '',
+      ),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
       isActive: json['is_active'] as bool? ?? true,
       lastActive: DateTime.tryParse(json['last_active']?.toString() ?? ''),
     );
+  }
+
+  static Set<AppPermission> _resolvePermissions({
+    required List<String> permissionList,
+    required String roleName,
+  }) {
+    final resolved = permissionList
+        .map(AppPermission.fromCode)
+        .whereType<AppPermission>()
+        .toSet();
+
+    // إذا كان المستخدم أدمن لكن الرد لا يحمل صلاحيات مفصلة، امنحه كل الصلاحيات المتاحة.
+    if (UserRole.fromRoleName(roleName) == UserRole.admin &&
+        resolved.isEmpty) {
+      return AppPermission.values.toSet();
+    }
+    return resolved;
   }
 
   static Product product(Map<String, dynamic> json) {

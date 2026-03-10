@@ -42,8 +42,16 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Write Supabase env file for Flutter
+        run: |
+          cat > supabase.functions.local.env <<'EOF'
+          SUPABASE_URL=${SUPABASE_URL}
+          SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
+          SUPABASE_ANON_KEY=${SUPABASE_PUBLISHABLE_KEY}
+          EOF
+
       - name: Build Flutter Web
-        run: flutter build web --release --dart-define=SUPABASE_URL=${SUPABASE_URL} --dart-define=SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY}
+        run: flutter build web --release --base-href / --dart-define-from-file=supabase.functions.local.env
 
       - name: Upload to Supabase
         run: npm run supabase:web:upload
