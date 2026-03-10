@@ -34,7 +34,7 @@ class SetupRequiredPage extends StatelessWidget {
                   Text(
                     context.t(
                       en: 'This build no longer includes demo data. Start the app with real Supabase credentials using --dart-define for SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, or use the compatible NEXT_PUBLIC_* names. Legacy SUPABASE_ANON_KEY remains supported. Then apply the SQL migration and deploy the employee management edge function.',
-                      ar: 'هذا الإصدار لا يحتوي على بيانات تجريبية. شغّل التطبيق ببيانات Supabase الحقيقية عبر --dart-define لـ SUPABASE_URL و SUPABASE_PUBLISHABLE_KEY أو باستخدام NEXT_PUBLIC_* المتوافقة. لا يزال SUPABASE_ANON_KEY مدعومًا. بعد ذلك طبّق ترحيلات SQL وانشر دالة إدارة الموظفين.',
+                      ar: 'هذا الإصدار لا يحتوي على بيانات تجريبية. شغّل التطبيق ببيانات Supabase الحقيقية عبر ‎--dart-define‎ لكل من ‎SUPABASE_URL‎ و‎SUPABASE_PUBLISHABLE_KEY‎ أو بأسماء ‎NEXT_PUBLIC_*‎ المكافئة. ما زال ‎SUPABASE_ANON_KEY‎ مدعومًا. بعد ذلك طبّق ترحيلات SQL وانشر دالة إدارة الموظفين (Edge).',
                     ),
                   ),
                 ],

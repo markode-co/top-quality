@@ -63,7 +63,9 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   FilledButton.icon(
                     onPressed: widget.onCreateOrder,
                     icon: const Icon(Icons.add),
-                    label: Text(context.t(en: 'New Order', ar: 'طلب جديد')),
+                    label: Text(
+                      context.t(en: 'New Order', ar: 'طلب جديد'),
+                    ),
                   ),
               ],
             ),
@@ -97,7 +99,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                   ),
                   subtitle: context.t(
                     en: 'Adjust the search query or status filter.',
-                    ar: 'عدّل البحث أو فلتر الحالة.',
+                    ar: 'عدّل عبارة البحث أو فلتر الحالة.',
                   ),
                 ),
               )

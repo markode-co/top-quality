@@ -20,6 +20,9 @@ class SupabaseBootstrap {
     await Supabase.initialize(
       url: AppConstants.supabaseUrl,
       anonKey: AppConstants.supabaseClientKey,
+      authOptions: const FlutterAuthClientOptions(
+        autoRefreshToken: true,
+      ),
     );
   }
 }

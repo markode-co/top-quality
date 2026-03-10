@@ -8,6 +8,7 @@ class ActivityLog {
     required this.createdAt,
     this.entityId,
     this.metadata,
+    this.companyId,
   });
 
   final String id;
@@ -18,4 +19,5 @@ class ActivityLog {
   final String? entityId;
   final DateTime createdAt;
   final Map<String, dynamic>? metadata;
+  final String? companyId;
 }

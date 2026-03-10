@@ -135,6 +135,7 @@ class RemoteMapper {
       metadata: json['metadata'] is Map<String, dynamic>
           ? json['metadata'] as Map<String, dynamic>
           : null,
+      companyId: json['company_id']?.toString(),
     );
   }
 

@@ -152,10 +152,13 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   final SignInUseCase _signIn;
   final SignOutUseCase _signOut;
 
-  Future<void> signIn({required String email, required String password}) async {
+  Future<void> signIn({
+    required String identifier,
+    required String password,
+  }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => _signIn(email: email, password: password),
+      () => _signIn(identifier: identifier, password: password),
     );
   }
 

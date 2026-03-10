@@ -5,15 +5,16 @@ extension ContextI18n on BuildContext {
   bool get isArabic =>
       Localizations.localeOf(this).languageCode.toLowerCase() == 'ar';
 
-  String t({required String en, required String ar}) {
-    return isArabic ? ar : en;
-  }
+  String t({required String en, required String ar}) => isArabic ? ar : en;
 
   String roleLabel(UserRole role) {
     return switch (role) {
-      UserRole.orderEntry => t(en: 'Order Entry User', ar: 'مدخل الطلبات'),
-      UserRole.reviewer => t(en: 'Order Reviewer', ar: 'مراجع الطلبات'),
-      UserRole.shipping => t(en: 'Shipping User', ar: 'مسؤول الشحن'),
+      UserRole.orderEntry =>
+          t(en: 'Order Entry User', ar: 'مدخل الطلبات'),
+      UserRole.reviewer =>
+          t(en: 'Order Reviewer', ar: 'مراجع الطلبات'),
+      UserRole.shipping =>
+          t(en: 'Shipping User', ar: 'مسؤول الشحن'),
       UserRole.admin => t(en: 'Admin', ar: 'مدير النظام'),
     };
   }
@@ -32,8 +33,8 @@ extension ContextI18n on BuildContext {
   String orderStatusShort(OrderStatus status) {
     return switch (status) {
       OrderStatus.entered => t(en: 'ENT', ar: 'إدخ'),
-      OrderStatus.checked => t(en: 'CHK', ar: 'مرا'),
-      OrderStatus.approved => t(en: 'APR', ar: 'اعت'),
+      OrderStatus.checked => t(en: 'CHK', ar: 'مراج'),
+      OrderStatus.approved => t(en: 'APR', ar: 'اعتم'),
       OrderStatus.shipped => t(en: 'SHP', ar: 'شحن'),
       OrderStatus.completed => t(en: 'CMP', ar: 'تم'),
       OrderStatus.returned => t(en: 'RET', ar: 'رجع'),

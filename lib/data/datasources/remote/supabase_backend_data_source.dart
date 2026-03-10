@@ -49,7 +49,11 @@ class SupabaseBackendDataSource implements BackendDataSource {
   }
 
   @override
-  Future<void> signIn({required String email, required String password}) async {
+  Future<void> signIn({
+    required String identifier,
+    required String password,
+  }) async {
+    final email = await _resolveEmailForLogin(identifier);
     final response = await _client.auth.signInWithPassword(
       email: email,
       password: password,
@@ -379,6 +383,23 @@ class SupabaseBackendDataSource implements BackendDataSource {
     if (!actor.hasPermission(required)) {
       throw AppException('You do not have permission to manage products.');
     }
+  }
+
+  Future<String> _resolveEmailForLogin(String identifier) async {
+    if (identifier.contains('@')) {
+      return identifier;
+    }
+
+    final response = await _client
+        .from('users')
+        .select('email')
+        .ilike('username', identifier)
+        .limit(1);
+
+    if (response.isEmpty || response.first['email'] == null) {
+      throw AppException('No user found for username "$identifier".');
+    }
+    return response.first['email'].toString();
   }
 
   Future<void> _invokeEmployeeManager({
@@ -762,7 +783,9 @@ class SupabaseBackendDataSource implements BackendDataSource {
   Future<List<ActivityLog>> _fetchActivityLogs() async {
     final response = await _client
         .from('activity_logs')
-        .select('id, actor_id, action, entity_type, entity_id, metadata, created_at')
+        .select(
+          'id, actor_id, action, entity_type, entity_id, metadata, company_id, created_at',
+        )
         .order('created_at', ascending: false)
         .limit(40);
 

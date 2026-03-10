@@ -11,7 +11,7 @@ import 'package:top_quality/domain/entities/product_draft.dart';
 abstract class BackendDataSource {
   Stream<AppUser?> watchSession();
   Future<AppUser?> getCurrentUser();
-  Future<void> signIn({required String email, required String password});
+  Future<void> signIn({required String identifier, required String password});
   Future<void> signOut();
   Stream<List<OrderEntity>> watchOrders();
   Stream<List<Product>> watchProducts();

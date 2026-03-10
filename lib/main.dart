@@ -9,10 +9,13 @@ import 'package:top_quality/presentation/pages/app_shell.dart';
 import 'package:top_quality/presentation/pages/setup_required_page.dart';
 import 'package:top_quality/presentation/pages/splash_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await SupabaseBootstrap.initialize();
+
   runApp(const ProviderScope(child: WarehouseApp()));
 }
 
@@ -49,7 +52,14 @@ class AppRoot extends ConsumerWidget {
 
     final session = ref.watch(sessionProvider);
     return session.when(
-      data: (user) => user == null ? const LoginPage() : const AppShell(),
+      data: (user) {
+        if (user != null) {
+          debugPrint(
+            'Supabase session: ${Supabase.instance.client.auth.currentSession}',
+          );
+        }
+        return user == null ? const LoginPage() : const AppShell();
+      },
       loading: () => const SplashPage(),
       error: (error, _) =>
           Scaffold(body: Center(child: Text(error.toString()))),

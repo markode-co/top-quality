@@ -12,12 +12,12 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -73,23 +73,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: Text(
                         context.t(
                           en: 'Sign in using the administrator credentials.',
-                          ar: 'سجّل الدخول باستخدام بيانات الدخول التي زوّدك بها المدير.',
+                          ar: 'سجّل الدخول باستخدام بيانات اعتماد المسؤول.',
                         ),
                         textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 24),
                     TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
+                      controller: _identifierController,
+                      keyboardType: TextInputType.text,
                       autofillHints: const [
                         AutofillHints.username,
                         AutofillHints.email,
                       ],
                       decoration: InputDecoration(
                         labelText: context.t(
-                          en: 'Email',
-                          ar: 'البريد الإلكتروني',
+                          en: 'Username or Email',
+                          ar: 'اسم المستخدم أو البريد الإلكتروني',
                         ),
                       ),
                     ),
@@ -100,7 +100,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       keyboardType: TextInputType.visiblePassword,
                       autofillHints: const [AutofillHints.password],
                       decoration: InputDecoration(
-                        labelText: context.t(en: 'Password', ar: 'كلمة المرور'),
+                        labelText:
+                            context.t(en: 'Password', ar: 'كلمة المرور'),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -124,7 +125,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   en: 'Signing in...',
                                   ar: 'جارٍ تسجيل الدخول...',
                                 )
-                              : context.t(en: 'Sign In', ar: 'تسجيل الدخول'),
+                              : context.t(
+                                  en: 'Sign In', ar: 'تسجيل الدخول'),
                         ),
                       ),
                     ),
@@ -139,10 +141,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() {
-    return ref
-        .read(authControllerProvider.notifier)
-        .signIn(
-          email: _emailController.text.trim(),
+    return ref.read(authControllerProvider.notifier).signIn(
+          identifier: _identifierController.text.trim(),
           password: _passwordController.text.trim(),
         );
   }

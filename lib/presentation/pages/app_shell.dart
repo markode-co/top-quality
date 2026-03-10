@@ -11,6 +11,7 @@ import 'package:top_quality/modules/orders/presentation/pages/create_order_page.
 import 'package:top_quality/modules/orders/presentation/pages/order_detail_page.dart';
 import 'package:top_quality/modules/orders/presentation/pages/orders_page.dart';
 import 'package:top_quality/modules/reports/presentation/pages/reports_page.dart';
+import 'package:top_quality/modules/activity/presentation/pages/activity_logs_page.dart';
 import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/app_top_controls.dart';
@@ -180,6 +181,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         visibleWhen: (candidate) =>
             candidate.hasPermission(AppPermission.usersView) ||
             candidate.hasPermission(AppPermission.usersCreate),
+      ),
+      _AppDestination(
+        id: 'activity',
+        label: context.t(en: 'Activity', ar: 'النشاط'),
+        icon: Icons.history,
+        page: const ActivityLogsPage(),
+        visibleWhen: (candidate) =>
+            candidate.hasPermission(AppPermission.activityLogsView),
       ),
     ];
 

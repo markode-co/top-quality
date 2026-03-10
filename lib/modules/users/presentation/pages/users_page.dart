@@ -38,11 +38,9 @@ class UsersPage extends ConsumerWidget {
         false;
 
     final usersValue = ref.watch(usersProvider);
-    final activityValue = ref.watch(activityLogsProvider);
 
     return usersValue.when(
       data: (users) {
-        final logs = activityValue.valueOrNull ?? const [];
         return ListView(
           padding: const EdgeInsets.all(24),
           children: [
@@ -121,21 +119,6 @@ class UsersPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SectionPanel(
-              title: context.t(en: 'Recent Activity', ar: 'النشاط الأخير'),
-              child: Column(
-                children: logs.take(12).map((log) {
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${log.actorName} • ${log.action}'),
-                    subtitle: Text(
-                      '${log.entityType} • ${AppFormatters.shortDateTime(log.createdAt)}',
-                    ),
-                  );
-                }).toList(),
               ),
             ),
             if (!canAssign)
