@@ -65,6 +65,30 @@ Legacy `SUPABASE_ANON_KEY` still works, but the publishable key is the preferred
 
 If credentials are missing, the app intentionally shows a setup-required screen and does not fall back to fake data.
 
+## Edge Function examples
+
+Call the `admin-manage-employee` Edge Function with an authenticated bearer token and a supported `action` (`list|create|update|deactivate|delete`):
+
+```dart
+final client = Supabase.instance.client;
+final session = client.auth.currentSession!;
+final res = await client.functions.invoke(
+  'admin-manage-employee',
+  body: {'action': 'list'},
+  headers: {'Authorization': 'Bearer ${session.accessToken}'},
+);
+```
+
+```bash
+curl -X POST "https://YOUR-PROJECT.supabase.co/functions/v1/admin-manage-employee" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "apikey: YOUR_PUBLISHABLE_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{"action":"list"}'
+```
+
+Using the anon/publishable key alone will return `401` because the function enforces authenticated callers.
+
 ## Security Model
 
 - Supabase Auth is the only authentication source

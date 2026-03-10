@@ -19,6 +19,13 @@ class SupabaseBackendDataSource implements BackendDataSource {
   SupabaseBackendDataSource() : _client = Supabase.instance.client;
 
   final SupabaseClient _client;
+  static const _supportedEmployeeActions = <String>{
+    'create',
+    'update',
+    'deactivate',
+    'delete',
+    'list',
+  };
 
   @override
   Stream<AppUser?> watchSession() async* {
@@ -236,6 +243,10 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required ProductDraft product,
   }) async {
+    _assertProductPermission(actor, product.id == null || product.id!.isEmpty
+        ? AppPermission.productsCreate
+        : AppPermission.productsEdit);
+
     final prefixedParams = {
       'p_product_id': product.id,
       'p_name': product.name,
@@ -275,6 +286,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required String productId,
   }) {
+    _assertProductPermission(actor, AppPermission.productsDelete);
     return _rpcWithAuthRetry(
       'delete_product',
       params: {'p_product_id': productId},
@@ -288,6 +300,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required int quantityDelta,
     required String reason,
   }) {
+    _assertProductPermission(actor, AppPermission.inventoryEdit);
     return _rpcWithAuthRetry(
       'adjust_inventory',
       params: {
@@ -303,6 +316,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required EmployeeDraft employee,
   }) {
+    _assertAdminActor(actor);
     return _invokeEmployeeManager(action: 'create', employee: employee);
   }
 
@@ -311,6 +325,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required EmployeeDraft employee,
   }) {
+    _assertAdminActor(actor);
     return _invokeEmployeeManager(action: 'update', employee: employee);
   }
 
@@ -320,6 +335,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required String employeeId,
     required bool isActive,
   }) {
+    _assertAdminActor(actor);
     return _invokeEmployeeManager(
       action: 'deactivate',
       employeeId: employeeId,
@@ -332,6 +348,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required String employeeId,
   }) {
+    _assertAdminActor(actor);
     return _invokeEmployeeManager(action: 'delete', employeeId: employeeId);
   }
 
@@ -343,12 +360,34 @@ class SupabaseBackendDataSource implements BackendDataSource {
     );
   }
 
+  void _assertAdminActor(AppUser actor) {
+    if (actor.role != UserRole.admin) {
+      throw AppException('Only admin users can manage employees.');
+    }
+  }
+
+  void _assertValidEmployeeAction(String action) {
+    if (_supportedEmployeeActions.contains(action)) {
+      return;
+    }
+    throw AppException(
+      'Unsupported employee action "$action". Allowed: ${_supportedEmployeeActions.join(', ')}.',
+    );
+  }
+
+  void _assertProductPermission(AppUser actor, AppPermission required) {
+    if (!actor.hasPermission(required)) {
+      throw AppException('You do not have permission to manage products.');
+    }
+  }
+
   Future<void> _invokeEmployeeManager({
     required String action,
     EmployeeDraft? employee,
     String? employeeId,
     bool? isActive,
   }) async {
+    _assertValidEmployeeAction(action);
     final payload = <String, dynamic>{
       'action': action,
       'employeeId': employeeId ?? employee?.id,
@@ -424,18 +463,24 @@ class SupabaseBackendDataSource implements BackendDataSource {
   Future<String?> _resolveAccessToken({bool forceRefresh = false}) async {
     final currentSession = _client.auth.currentSession;
 
-    if (!forceRefresh) {
-      final existing = currentSession?.accessToken;
-      if (existing != null && existing.isNotEmpty) {
-        if (currentSession?.isExpired == true) {
-          forceRefresh = true;
-        } else {
-          return existing;
-        }
-      }
+    // Supabase Session does not expose an `isExpired` flag; we have to check the
+    // numeric expiry. Refresh proactively when the token is missing, expired,
+    // or within the next 90 seconds to avoid a first-call 401 from the Edge
+    // Function.
+    bool shouldRefresh() {
+      if (forceRefresh) return true;
+      final expiresAt = currentSession?.expiresAt;
+      if (expiresAt == null) return true;
+      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return (expiresAt - nowSeconds) < 90;
     }
 
-    if (forceRefresh || currentSession?.isExpired == true) {
+    final existing = currentSession?.accessToken;
+    if (existing != null && existing.isNotEmpty && !shouldRefresh()) {
+      return existing;
+    }
+
+    if (shouldRefresh()) {
       try {
         final refreshResponse = await _client.auth.refreshSession();
         final refreshed = refreshResponse.session?.accessToken;
@@ -444,10 +489,6 @@ class SupabaseBackendDataSource implements BackendDataSource {
         }
       } catch (_) {
         // Ignore and fallback to in-memory session token.
-      }
-
-      if (forceRefresh) {
-        return null;
       }
     }
 
@@ -463,17 +504,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required String accessToken,
     required Map<String, dynamic> payload,
   }) {
-    final headers = <String, String>{'Authorization': 'Bearer $accessToken'};
-    final clientKey = AppConstants.supabaseClientKey;
-    if (clientKey.isNotEmpty) {
-      headers['apikey'] = clientKey;
-    }
-
-    return _client.functions.invoke(
-      'admin-manage-employee',
-      headers: headers,
-      body: payload,
-    );
+    return _invokeEmployeeManagerWithToken(accessToken, payload);
   }
 
   Future<dynamic> _invokeEmployeeManagerRequestWithClientSession(
@@ -484,17 +515,27 @@ class SupabaseBackendDataSource implements BackendDataSource {
       throw AppException('Your session has expired. Please sign in again.');
     }
 
+    return _invokeEmployeeManagerWithToken(accessToken, payload);
+  }
+
+  Future<dynamic> _invokeEmployeeManagerWithToken(
+    String accessToken,
+    Map<String, dynamic> payload,
+  ) {
+    return _client.functions.invoke(
+      'admin-manage-employee',
+      headers: _buildFunctionHeaders(accessToken),
+      body: payload,
+    );
+  }
+
+  Map<String, String> _buildFunctionHeaders(String accessToken) {
     final headers = <String, String>{'Authorization': 'Bearer $accessToken'};
     final clientKey = AppConstants.supabaseClientKey;
     if (clientKey.isNotEmpty) {
       headers['apikey'] = clientKey;
     }
-
-    return _client.functions.invoke(
-      'admin-manage-employee',
-      headers: headers,
-      body: payload,
-    );
+    return headers;
   }
 
   void _throwEmployeeManagerErrorIfAny(dynamic response) {
@@ -573,6 +614,9 @@ class SupabaseBackendDataSource implements BackendDataSource {
     try {
       return await _client.rpc(functionName, params: params);
     } on PostgrestException catch (error) {
+      if (_isAuthRequiredPostgrest(error)) {
+        throw AppException('Authentication required. Please sign in again.');
+      }
       if (!_isUnauthorizedPostgrest(error)) {
         rethrow;
       }
@@ -904,6 +948,11 @@ class SupabaseBackendDataSource implements BackendDataSource {
         message.contains('unauthorized') ||
         details.contains('jwt') ||
         hint.contains('jwt');
+  }
+
+  bool _isAuthRequiredPostgrest(PostgrestException error) {
+    final message = error.message.toLowerCase();
+    return message.contains('authentication required');
   }
 
   bool _isRpcArgumentMismatch(PostgrestException error) {

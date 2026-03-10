@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient, authenticate, corsHeaders, handleError, HttpError, jsonResponse } from "../supabase-edge-helpers.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type Action = "create" | "update" | "deactivate" | "delete";
+type Action = "create" | "update" | "deactivate" | "delete" | "list";
 
 interface RequestBody {
   action: Action;
@@ -56,6 +56,8 @@ Deno.serve(async (req: Request) => {
           return await handleDeactivate(adminClient, callerContext, body);
         case "delete":
           return await handleDelete(adminClient, callerContext, body);
+        case "list":
+          return await handleList(adminClient, callerContext);
         default:
           throw new HttpError(400, "Unsupported employee action.");
       }
@@ -133,6 +135,40 @@ async function handleCreate(
   });
 
   return jsonResponse({ status: "ok", employeeId });
+}
+
+async function handleList(adminClient: SupabaseClient, caller: CallerContext) {
+  const { data, error } = await adminClient
+    .from("users")
+    .select(
+      "id, name, email, is_active, branch_id, company_id, role:roles(role_name), user_permissions(permission_code)",
+    )
+    .eq("company_id", caller.companyId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new HttpError(400, error.message);
+  }
+
+  const employees =
+    data?.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      isActive: row.is_active ?? false,
+      branchId: row.branch_id ?? null,
+      roleName: resolveRoleName(
+        Array.isArray(row.role) && row.role.length > 0 ? row.role[0] : row.role ?? {},
+      ),
+      permissions:
+        Array.isArray(row.user_permissions) && row.user_permissions.length > 0
+          ? row.user_permissions
+              .map((item: Record<string, unknown>) => item?.permission_code)
+              .filter((code): code is string => typeof code === "string" && code.length > 0)
+          : [],
+    })) ?? [];
+
+  return jsonResponse({ status: "ok", employees });
 }
 
 async function handleUpdate(
@@ -342,6 +378,7 @@ function assertActionAllowed(caller: CallerContext, action: Action) {
     update: ["users_edit", "users_assign_permissions"],
     deactivate: ["users_edit"],
     delete: ["users_delete"],
+    list: ["users_view"],
   };
 
   const missing = requiredPermissions[action].filter((permission) => !caller.permissions.has(permission));
