@@ -13,6 +13,7 @@ class CreateOrderUseCase {
     required AppUser actor,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) {
@@ -21,6 +22,7 @@ class CreateOrderUseCase {
       actor: actor,
       customerName: customerName,
       customerPhone: customerPhone,
+      customerAddress: customerAddress,
       notes: notes,
       items: items,
     );

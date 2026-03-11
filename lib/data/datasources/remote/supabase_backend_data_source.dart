@@ -154,6 +154,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) async {
@@ -162,6 +163,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
       params: {
         'p_customer_name': customerName,
         'p_customer_phone': customerPhone,
+        'p_customer_address': customerAddress,
         'p_order_notes': notes,
         'p_items': items
             .map(
@@ -181,6 +183,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required String orderId,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) async {
@@ -190,6 +193,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
         'p_order_id': orderId,
         'p_customer_name': customerName,
         'p_customer_phone': customerPhone,
+        'p_customer_address': customerAddress,
         'p_order_notes': notes,
         'p_items': items
             .map(
@@ -247,9 +251,12 @@ class SupabaseBackendDataSource implements BackendDataSource {
     required AppUser actor,
     required ProductDraft product,
   }) async {
-    _assertProductPermission(actor, product.id == null || product.id!.isEmpty
-        ? AppPermission.productsCreate
-        : AppPermission.productsEdit);
+    _assertProductPermission(
+      actor,
+      product.id == null || product.id!.isEmpty
+          ? AppPermission.productsCreate
+          : AppPermission.productsEdit,
+    );
 
     final prefixedParams = {
       'p_product_id': product.id,
@@ -662,9 +669,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
   Future<void> _executeUserLoginAndActivity(User user) async {
     await _rpcWithAuthRetry(
       'record_user_login',
-      params: {
-        'p_user_id': user.id,
-      },
+      params: {'p_user_id': user.id},
     );
 
     try {
@@ -752,7 +757,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
       final response = await _client
           .from('orders')
           .select(
-            'id, customer_name, customer_phone, order_date, order_notes, status, '
+            'id, customer_name, customer_phone, customer_address, order_date, order_notes, status, '
             'created_by, created_by_name, '
             'order_items(id, product_id, product_name, quantity, purchase_price, sale_price, profit), '
             'order_status_history(id, status, changed_by, changed_by_name, changed_at, note)',
@@ -1024,7 +1029,8 @@ class SupabaseBackendDataSource implements BackendDataSource {
         }
 
         final user = RemoteMapper.appUser(payload);
-        if (roleName.isEmpty && (payload['role_id']?.toString().isNotEmpty ?? false)) {
+        if (roleName.isEmpty &&
+            (payload['role_id']?.toString().isNotEmpty ?? false)) {
           return null;
         }
         if (user.role != UserRole.admin && user.permissions.isEmpty) {
@@ -1226,11 +1232,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
           'products_edit',
         ];
       case 'inventory_write':
-        return const [
-          'inventory_write',
-          'inventory_edit',
-          'inventory_view',
-        ];
+        return const ['inventory_write', 'inventory_edit', 'inventory_view'];
       case 'delete':
         return const [
           'delete',
@@ -1257,20 +1259,19 @@ class SupabaseBackendDataSource implements BackendDataSource {
           'products_edit',
           'products_delete',
         ];
+      case 'admin_access':
+        return ['admin_access', ...AppPermission.values.map((p) => p.code)];
       case 'orders_read':
         return const ['orders_read', 'orders_view'];
       case 'orders_write':
-        return const ['orders_write', 'orders_view', 'orders_create', 'orders_edit'];
+        return const [
+          'orders_write',
+          'orders_view',
+          'orders_create',
+          'orders_edit',
+        ];
       case 'inventory_read':
         return const ['inventory_read', 'inventory_view', 'products_view'];
-      case 'inventory_write':
-        return const [
-          'inventory_write',
-          'inventory_view',
-          'inventory_edit',
-          'products_view',
-          'products_edit',
-        ];
       default:
         return [permissionCode];
     }
@@ -1321,7 +1322,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
     final ordersResponse = await _client
         .from('orders')
         .select(
-          'id, customer_name, customer_phone, order_date, order_notes, status, '
+          'id, customer_name, customer_phone, customer_address, order_date, order_notes, status, '
           'created_by, created_by_name',
         )
         .order('order_date', ascending: false);

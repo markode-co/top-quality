@@ -41,6 +41,7 @@ class OrderEntity {
     required this.id,
     required this.customerName,
     required this.customerPhone,
+    this.customerAddress,
     required this.orderDate,
     required this.status,
     required this.createdBy,
@@ -53,6 +54,7 @@ class OrderEntity {
   final String id;
   final String customerName;
   final String customerPhone;
+  final String? customerAddress;
   final DateTime orderDate;
   final String? notes;
   final OrderStatus status;
@@ -73,6 +75,7 @@ class OrderEntity {
     String? id,
     String? customerName,
     String? customerPhone,
+    String? customerAddress,
     DateTime? orderDate,
     String? notes,
     OrderStatus? status,
@@ -85,6 +88,7 @@ class OrderEntity {
       id: id ?? this.id,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
+      customerAddress: customerAddress ?? this.customerAddress,
       orderDate: orderDate ?? this.orderDate,
       notes: notes ?? this.notes,
       status: status ?? this.status,

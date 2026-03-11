@@ -157,7 +157,7 @@ async function handleList(adminClient: SupabaseClient, caller: CallerContext) {
   const { data, error } = await adminClient
     .from("users")
     .select(
-      "id, name, email, is_active, branch_id, company_id, role:roles(role_name), user_permissions(permission_code)",
+      "id, name, email, is_active, branch_id, company_id, role:roles(role_name), role_permissions:role_permissions(permission_code), user_permissions(permission_code)",
     )
     .eq("company_id", caller.companyId)
     .order("name", { ascending: true });
@@ -176,12 +176,16 @@ async function handleList(adminClient: SupabaseClient, caller: CallerContext) {
       roleName: resolveRoleName(
         Array.isArray(row.role) && row.role.length > 0 ? row.role[0] : row.role ?? {},
       ),
-      permissions:
-        Array.isArray(row.user_permissions) && row.user_permissions.length > 0
-          ? row.user_permissions
-              .map((item: Record<string, unknown>) => item?.permission_code)
-              .filter((code): code is string => typeof code === "string" && code.length > 0)
-          : [],
+      permissions: [
+        ...new Set(
+          [
+            ...(Array.isArray(row.role_permissions) ? row.role_permissions : []),
+            ...(Array.isArray(row.user_permissions) ? row.user_permissions : []),
+          ]
+            .map((item: Record<string, unknown>) => item?.permission_code)
+            .filter((code): code is string => typeof code === "string" && code.length > 0),
+        ),
+      ],
     })) ?? [];
 
   return jsonResponse({ status: "ok", employees });

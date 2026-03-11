@@ -198,6 +198,7 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
   Future<void> createOrder({
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) {
@@ -206,6 +207,7 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
         actor: user,
         customerName: customerName,
         customerPhone: customerPhone,
+        customerAddress: customerAddress,
         notes: notes,
         items: items,
       ),
@@ -216,6 +218,7 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String orderId,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) {
@@ -227,6 +230,7 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
             orderId: orderId,
             customerName: customerName,
             customerPhone: customerPhone,
+            customerAddress: customerAddress,
             notes: notes,
             items: items,
           ),

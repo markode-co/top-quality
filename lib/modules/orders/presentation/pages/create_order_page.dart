@@ -21,6 +21,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
   final _formKey = GlobalKey<FormState>();
   final _customerController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
   final _notesController = TextEditingController();
   final List<_DraftLine> _lines = [_DraftLine()];
   bool _seeded = false;
@@ -29,6 +30,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
   void dispose() {
     _customerController.dispose();
     _phoneController.dispose();
+    _addressController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -82,6 +84,17 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                         en: 'Customer Phone',
                         ar: 'هاتف العميل',
                       ),
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                        ? context.t(en: 'Required', ar: 'مطلوب')
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: InputDecoration(
+                      labelText: context.t(en: 'Address', ar: 'العنوان'),
                     ),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty)
@@ -220,6 +233,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
     _seeded = true;
     _customerController.text = order.customerName;
     _phoneController.text = order.customerPhone;
+    _addressController.text = order.customerAddress ?? '';
     _notesController.text = order.notes ?? '';
     _lines
       ..clear()
@@ -262,6 +276,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
             orderId: widget.orderId!,
             customerName: _customerController.text.trim(),
             customerPhone: _phoneController.text.trim(),
+            customerAddress: _addressController.text.trim(),
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
@@ -273,6 +288,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
           .createOrder(
             customerName: _customerController.text.trim(),
             customerPhone: _phoneController.text.trim(),
+            customerAddress: _addressController.text.trim(),
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),

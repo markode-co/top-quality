@@ -9,7 +9,6 @@ import 'package:top_quality/presentation/pages/app_shell.dart';
 import 'package:top_quality/presentation/pages/setup_required_page.dart';
 import 'package:top_quality/presentation/pages/splash_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +36,24 @@ class WarehouseApp extends ConsumerWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const AppRoot(),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        // Scale UI gently based on shortest side (phones vs tablets) with safe clamps.
+        final shortest = mq.size.shortestSide;
+        final scale = (shortest / 430).clamp(0.85, 1.15);
+        // textScaler.scale(1) يعطينا عامل التكبير الحالي (بدون الاعتماد على textScaleFactor المتوقف)
+        final baseScale = mq.textScaler.scale(1);
+        final textScale = TextScaler.linear(
+          (baseScale * scale).clamp(0.9, 1.15),
+        );
+        return MediaQuery(
+          data: mq.copyWith(textScaler: textScale),
+          child: IconTheme(
+            data: IconTheme.of(context).copyWith(size: 22 * scale),
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }
@@ -53,11 +70,6 @@ class AppRoot extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     return session.when(
       data: (user) {
-        if (user != null) {
-          debugPrint(
-            'Supabase session: ${Supabase.instance.client.auth.currentSession}',
-          );
-        }
         return user == null ? const LoginPage() : const AppShell();
       },
       loading: () => const SplashPage(),

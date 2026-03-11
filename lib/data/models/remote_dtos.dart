@@ -14,15 +14,18 @@ class RemoteMapper {
         ? permissionsJson.map((item) => item.toString()).toList()
         : const <String>[];
 
+    final rawRoleName = json['role_name']?.toString() ?? '';
+    var role = UserRole.fromRoleName(rawRoleName);
+
     return AppUser(
       id: json['id'].toString(),
       name: json['name']?.toString() ?? 'Unknown User',
       email: json['email']?.toString() ?? '',
       roleId: json['role_id']?.toString() ?? '',
-      role: UserRole.fromRoleName(json['role_name']?.toString() ?? ''),
+      role: role,
       permissions: _resolvePermissions(
         permissionList: permissionList,
-        roleName: json['role_name']?.toString() ?? '',
+        roleName: rawRoleName,
       ),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
@@ -41,12 +44,53 @@ class RemoteMapper {
         .whereType<AppPermission>()
         .toSet();
 
-    // إذا كان المستخدم أدمن لكن الرد لا يحمل صلاحيات مفصلة، امنحه كل الصلاحيات المتاحة.
-    if (UserRole.fromRoleName(roleName) == UserRole.admin &&
-        resolved.isEmpty) {
+    final role = UserRole.fromRoleName(roleName);
+
+    // Admin: always grant all permissions, regardless of payload.
+    if (role == UserRole.admin) {
       return AppPermission.values.toSet();
     }
+
+    // إذا وُجد كود admin_access ضمن الصلاحيات، اعتبره أدمن أيضًا.
+    if (permissionList.contains('admin_access')) {
+      return AppPermission.values.toSet();
+    }
+
+    if (resolved.isEmpty) {
+      return _defaultRolePermissions(role);
+    }
     return resolved;
+  }
+
+  static Set<AppPermission> _defaultRolePermissions(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return AppPermission.values.toSet();
+      case UserRole.reviewer: // Manager
+        return {
+          AppPermission.dashboardView,
+          AppPermission.usersView,
+          AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+          AppPermission.reportsView,
+          AppPermission.activityLogsView,
+        };
+      case UserRole.orderEntry: // Employee
+        return {
+          AppPermission.dashboardView,
+          AppPermission.usersView,
+          AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+        };
+      case UserRole.shipping: // Viewer (عرض فقط)
+        return {
+          AppPermission.dashboardView,
+          AppPermission.usersView,
+          AppPermission.productsView,
+        };
+    }
   }
 
   static Product product(Map<String, dynamic> json) {
@@ -81,6 +125,7 @@ class RemoteMapper {
       id: json['id'].toString(),
       customerName: json['customer_name']?.toString() ?? 'Unknown Customer',
       customerPhone: json['customer_phone']?.toString() ?? '',
+      customerAddress: json['customer_address']?.toString(),
       orderDate:
           DateTime.tryParse(json['order_date']?.toString() ?? '') ??
           DateTime.now(),

@@ -24,6 +24,7 @@ abstract class BackendDataSource {
     required AppUser actor,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   });
@@ -32,6 +33,7 @@ abstract class BackendDataSource {
     required String orderId,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   });

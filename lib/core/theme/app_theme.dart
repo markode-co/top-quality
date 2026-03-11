@@ -16,6 +16,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFFF1F6FB),
       appBarTheme: AppBarTheme(
@@ -94,6 +95,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
       colorScheme: colorScheme,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF0C1520),

@@ -20,6 +20,7 @@ class WmsRepositoryImpl implements WmsRepository {
     required AppUser actor,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) {
@@ -27,6 +28,7 @@ class WmsRepositoryImpl implements WmsRepository {
       actor: actor,
       customerName: customerName,
       customerPhone: customerPhone,
+      customerAddress: customerAddress,
       notes: notes,
       items: items,
     );
@@ -38,6 +40,7 @@ class WmsRepositoryImpl implements WmsRepository {
     required String orderId,
     required String customerName,
     required String customerPhone,
+    required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
   }) {
@@ -46,6 +49,7 @@ class WmsRepositoryImpl implements WmsRepository {
       orderId: orderId,
       customerName: customerName,
       customerPhone: customerPhone,
+      customerAddress: customerAddress,
       notes: notes,
       items: items,
     );
