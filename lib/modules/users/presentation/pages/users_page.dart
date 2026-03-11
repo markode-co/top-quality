@@ -146,6 +146,7 @@ class UsersPage extends ConsumerWidget {
   }) async {
     final nameController = TextEditingController(text: user?.name ?? '');
     final emailController = TextEditingController(text: user?.email ?? '');
+    final companyController = TextEditingController();
     final passwordController = TextEditingController();
     UserRole selectedRole = user?.role ?? UserRole.orderEntry;
     final selectedPermissions = <AppPermission>{...user?.permissions ?? {}};
@@ -182,6 +183,21 @@ class UsersPage extends ConsumerWidget {
                       labelText: context.t(
                         en: 'Email',
                         ar: 'البريد الإلكتروني',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: companyController,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: context.t(
+                        en: 'Company name',
+                        ar: 'اسم الشركة',
+                      ),
+                      hintText: context.t(
+                        en: 'e.g., Acme Logistics',
+                        ar: 'مثال: شركة النجاح المتحدة',
                       ),
                     ),
                   ),
@@ -275,6 +291,9 @@ class UsersPage extends ConsumerWidget {
       password: passwordController.text.trim().isEmpty
           ? null
           : passwordController.text.trim(),
+      companyName: companyController.text.trim().isEmpty
+          ? null
+          : companyController.text.trim(),
       role: selectedRole,
       permissions: selectedPermissions,
       isActive: user?.isActive ?? true,

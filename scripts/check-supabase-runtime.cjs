@@ -12,6 +12,7 @@ async function main() {
   const supabaseUrl = env.SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
   const anonKey = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY;
+  const testUserJwt = env.SUPABASE_TEST_JWT || process.env.SUPABASE_TEST_JWT;
 
   if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     throw new Error(
@@ -141,16 +142,18 @@ async function main() {
     recordRpcResult(`RPC ${rpcName}`, result, failures);
   }
 
+  const edgeHeaders = {
+    apikey: anonKey,
+    Authorization: `Bearer ${testUserJwt || anonKey}`,
+    "Content-Type": "application/json",
+  };
+
   const edgeResult = await request(`${functionBaseUrl}/admin-manage-employee`, {
     method: "POST",
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: edgeHeaders,
     body: JSON.stringify({ action: "create" }),
   });
-  recordFunctionResult("Edge admin-manage-employee", edgeResult, failures);
+  recordFunctionResult("Edge admin-manage-employee", edgeResult, failures, Boolean(testUserJwt));
 
   if (failures.length > 0) {
     console.error("");
@@ -244,8 +247,8 @@ function recordRpcResult(label, result, failures) {
   console.log(`[fail] ${label}`);
 }
 
-function recordFunctionResult(label, result, failures) {
-  if (result.status === 401) {
+function recordFunctionResult(label, result, failures, hadUserJwt) {
+  if (result.status === 401 && !hadUserJwt) {
     console.log(`[warn] ${label} (HTTP 401 without user JWT)`);
     return;
   }

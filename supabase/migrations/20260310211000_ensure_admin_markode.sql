@@ -1,56 +1,58 @@
--- Ensure admin user markode with full permissions and correct email
+-- Ensure admin user markode exists with full permissions (idempotent)
+-- Uses auth.users as source of truth; no password stored in public.users.
+
+create extension if not exists "uuid-ossp";
+create extension if not exists "pgcrypto";
 
 do $$
 declare
-  v_admin_role uuid;
+  v_email   text := 'markode@gmail.com';
+  v_name    text := 'markode';
+  v_user_id uuid;
+  v_role_id uuid;
   v_company uuid;
-  v_user uuid;
 begin
-  select id into v_admin_role from public.roles where role_name = 'Admin' limit 1;
-  if v_admin_role is null then
-    insert into public.roles(role_name, description)
-    values ('Admin', 'System Administrator')
-    on conflict (role_name) do nothing
-    returning id into v_admin_role;
+  -- Locate auth user
+  select id into v_user_id from auth.users where lower(email) = lower(v_email) limit 1;
+  if v_user_id is null then
+    raise exception 'Auth user with email % not found. Create it in auth.users first.', v_email;
   end if;
 
+  -- Ensure Admin role
+  select id into v_role_id from public.roles where lower(role_name) = 'admin' limit 1;
+  if v_role_id is null then
+    insert into public.roles(role_name, description)
+    values ('Admin', 'System administrator')
+    returning id into v_role_id;
+  end if;
+
+  -- Fallback company
   select company_id into v_company from public.users where company_id is not null limit 1;
   if v_company is null then
     v_company := uuid_generate_v4();
   end if;
 
-  select id into v_user from public.users where username = 'markode' limit 1;
+  -- Upsert public.users profile
+  insert into public.users(id, email, name, is_active, company_id, role_id)
+  values (v_user_id, v_email, v_name, true, v_company, v_role_id)
+  on conflict (id) do update set
+    email      = excluded.email,
+    name       = excluded.name,
+    is_active  = true,
+    company_id = coalesce(public.users.company_id, excluded.company_id),
+    role_id    = excluded.role_id;
 
-  if v_user is null then
-    insert into public.users(
-      username, email, password, name, role_id, is_active, company_id
-    )
-    values (
-      'markode',
-      'markode@gmail.com',
-      crypt('123456', gen_salt('bf')),
-      'Mark ODE',
-      v_admin_role,
-      true,
-      v_company
-    )
-    returning id into v_user;
-  else
-    update public.users
-       set email      = 'markode@gmail.com',
-           role_id    = v_admin_role,
-           is_active  = true,
-           company_id = coalesce(company_id, v_company),
-           password   = coalesce(password, crypt('123456', gen_salt('bf')))
-     where id = v_user;
-  end if;
-
-  -- Grant all permissions to markode (in case role policies are insufficient)
-  insert into public.user_permissions(user_id, permission_code)
-  select v_user, p.code
-  from public.permissions p
+  -- Grant all permissions to Admin role
+  insert into public.role_permissions (role_id, permission_code)
+  select v_role_id, p.code from public.permissions p
   on conflict do nothing;
-end$$;
+
+  -- Also grant directly to the user (defensive)
+  insert into public.user_permissions (user_id, permission_code)
+  select v_user_id, p.code from public.permissions p
+  on conflict do nothing;
+end;
+$$;
 
 -- Refresh PostgREST cache
 notify pgrst, 'reload schema';

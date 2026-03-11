@@ -16,10 +16,11 @@
     "supabase:web:upload": "node ./scripts/upload-supabase-web.cjs",
     "supabase:web:deploy": "npm run supabase:web:build && npm run supabase:web:upload",
     "supabase:functions:serve:static-proxy": "supabase functions serve static-proxy --no-verify-jwt",
-    "supabase:functions:deploy:static-proxy": "supabase functions deploy static-proxy --no-verify-jwt --use-api"
+    "supabase:functions:deploy:static-proxy": "supabase functions deploy static-proxy --no-verify-jwt --use-api",
+    "build": "npm run supabase:web:build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.99.0",
     "firebase": "^12.10.0",
     "mime": "^2.6.0"
   },

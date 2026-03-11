@@ -415,6 +415,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
       'name': employee?.name,
       'email': employee?.email,
       'password': employee?.password,
+      'companyName': employee?.companyName,
       'roleName': employee?.role.label,
       'permissions': employee?.permissions.map((item) => item.code).toList(),
       'isActive': isActive ?? employee?.isActive,
@@ -1175,7 +1176,7 @@ class SupabaseBackendDataSource implements BackendDataSource {
   }
 
   String? _resolvePermissionId(Map<String, dynamic> row) {
-    for (final key in const ['id', 'permission_id']) {
+    for (final key in const ['id', 'permission_id', 'code']) {
       final value = row[key]?.toString();
       if (value != null && value.isNotEmpty) {
         return value;
@@ -1223,6 +1224,12 @@ class SupabaseBackendDataSource implements BackendDataSource {
           'inventory_edit',
           'products_create',
           'products_edit',
+        ];
+      case 'inventory_write':
+        return const [
+          'inventory_write',
+          'inventory_edit',
+          'inventory_view',
         ];
       case 'delete':
         return const [

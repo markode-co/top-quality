@@ -48,4 +48,5 @@ app.*.map.json
 *.local.ps1
 *.local.json
 *.local.env
+supabase/.env
 node_modules

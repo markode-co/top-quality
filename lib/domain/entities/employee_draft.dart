@@ -6,6 +6,7 @@ class EmployeeDraft {
     required this.name,
     required this.email,
     this.password,
+    this.companyName,
     required this.role,
     required this.permissions,
     this.isActive = true,
@@ -15,6 +16,7 @@ class EmployeeDraft {
   final String name;
   final String email;
   final String? password;
+  final String? companyName;
   final UserRole role;
   final Set<AppPermission> permissions;
   final bool isActive;

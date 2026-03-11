@@ -13,6 +13,7 @@ interface RequestBody {
   roleName?: string;
   permissions?: string[];
   isActive?: boolean;
+  companyName?: string;
 }
 
 interface CallerContext {
@@ -38,16 +39,28 @@ Deno.serve(async (req: Request) => {
     const adminClient = createAdminClient();
     const { user } = await authenticate(req, adminClient);
 
-    const body = (await req.json()) as RequestBody;
+    const rawBody = (await req.json()) as Partial<RequestBody>;
+    const action = rawBody.action;
+
+    // Validate action early to return رسالة أوضح بدل أخطاء لاحقة
+    if (!action) {
+      throw new HttpError(400, "Missing employee action.");
+    }
+    if (!["create", "update", "deactivate", "delete", "list"].includes(action)) {
+      throw new HttpError(400, "Unsupported employee action.");
+    }
+
+    const body = { ...rawBody, action } as RequestBody;
+
     const callerContext = await getCallerContext(adminClient, user.id);
-    assertActionAllowed(callerContext, body.action);
+    assertActionAllowed(callerContext, action);
 
     const permissions = Array.from(
       new Set((body.permissions ?? []).map((item) => item.trim()).filter(Boolean)),
     );
 
     try {
-      switch (body.action) {
+      switch (action) {
         case "create":
           return await handleCreate(adminClient, callerContext, body, permissions);
         case "update":
@@ -62,7 +75,7 @@ Deno.serve(async (req: Request) => {
           throw new HttpError(400, "Unsupported employee action.");
       }
     } catch (actionError) {
-      await writeAuditLog(adminClient, callerContext.id, `employee_${body.action}_failed`, body.employeeId ?? null, {
+      await writeAuditLog(adminClient, callerContext.id, `employee_${action}_failed`, body.employeeId ?? null, {
         error: actionError instanceof Error ? actionError.message : "Unknown error",
       });
       throw actionError;
@@ -81,6 +94,9 @@ async function handleCreate(
   if (!body.name || !body.email || !body.password || !body.roleName) {
     throw new HttpError(400, "Missing required fields for employee creation.");
   }
+
+  const companyName = body.companyName?.trim();
+  await ensureCallerCompanyExists(adminClient, caller.companyId, companyName);
 
   const role = await findRoleByName(adminClient, body.roleName);
   if (!role) {
@@ -404,6 +420,43 @@ async function assertManagedUserInTenant(
 
   if (targetUser.company_id !== caller.companyId) {
     throw new HttpError(403, "Cross-company employee management is not allowed.");
+  }
+}
+
+async function ensureCallerCompanyExists(
+  adminClient: SupabaseClient,
+  companyId: string,
+  companyName?: string | null,
+) {
+  // Prevent FK errors when the caller's company was never inserted (common in fresh dev DBs)
+  const normalizedName = companyName?.trim();
+  const { data, error } = await adminClient
+    .from("companies")
+    .select("id, name")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error) {
+    throw new HttpError(400, `Failed to verify caller company: ${error.message}`);
+  }
+  if (!data) {
+    const { error: insertError } = await adminClient
+      .from("companies")
+      .insert({ id: companyId, name: normalizedName && normalizedName.length > 0 ? normalizedName : "Default Company" });
+    if (insertError) {
+      throw new HttpError(400, `Failed to create caller company: ${insertError.message}`);
+    }
+    return;
+  }
+
+  // If الشركة موجودة لكن الاسم مختلف وتم تمرير اسم جديد، نقوم بتحديثه للحفاظ على تناسق الواجهه مع SQL.
+  if (normalizedName && normalizedName.length > 0 && normalizedName !== data.name) {
+    const { error: updateError } = await adminClient
+      .from("companies")
+      .update({ name: normalizedName })
+      .eq("id", companyId);
+    if (updateError) {
+      throw new HttpError(400, `Failed to update caller company name: ${updateError.message}`);
+    }
   }
 }
 
