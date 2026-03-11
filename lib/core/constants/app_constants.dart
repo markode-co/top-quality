@@ -1,6 +1,14 @@
 class AppConstants {
   const AppConstants._();
 
+  /// Optional domain appended when a user signs in with a bare username
+  /// (no "@"). Example: set `--dart-define=LOGIN_FALLBACK_DOMAIN=company.com`
+  /// so "markode" signs in as "markode@company.com".
+  static const loginFallbackDomain = String.fromEnvironment(
+    'LOGIN_FALLBACK_DOMAIN',
+    defaultValue: '',
+  );
+
   static const supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
     defaultValue: String.fromEnvironment('NEXT_PUBLIC_SUPABASE_URL'),

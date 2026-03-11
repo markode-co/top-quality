@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_constants.dart';
-import 'package:top_quality/core/services/supabase_bootstrap.dart';
+import 'package:top_quality/core/services/firebase_bootstrap.dart';
+import 'package:top_quality/core/services/supabase_storage.dart';
 import 'package:top_quality/core/theme/app_theme.dart';
 import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
 import 'package:top_quality/presentation/pages/app_shell.dart';
-import 'package:top_quality/presentation/pages/setup_required_page.dart';
 import 'package:top_quality/presentation/pages/splash_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SupabaseBootstrap.initialize();
+  await FirebaseBootstrap.initialize();
+  await SupabaseStorageBootstrap.initialize();
 
   runApp(const ProviderScope(child: WarehouseApp()));
 }
@@ -63,10 +64,6 @@ class AppRoot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(backendConfiguredProvider)) {
-      return const SetupRequiredPage();
-    }
-
     final session = ref.watch(sessionProvider);
     return session.when(
       data: (user) {
