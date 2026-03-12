@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
+import 'package:top_quality/domain/entities/app_user.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
@@ -26,6 +27,8 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
   @override
   Widget build(BuildContext context) {
     final logsValue = ref.watch(activityLogsProvider);
+    final users = ref.watch(usersProvider).valueOrNull ?? const <AppUser>[];
+    final userById = {for (final user in users) user.id: user};
     return logsValue.when(
       data: (logs) {
         if (logs.isEmpty) {
@@ -40,9 +43,7 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
         }
 
         final filtered = _applyFilters(logs);
-        final entityTypes = {
-          for (final log in logs) log.entityType,
-        }.toList()
+        final entityTypes = {for (final log in logs) log.entityType}.toList()
           ..sort();
 
         return ListView(
@@ -100,46 +101,39 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                 icon: Icons.search_off_outlined,
               )
             else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                separatorBuilder: (_, idx) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final log = filtered[index];
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.history),
-                      title: Text(
-                        log.actorName.isNotEmpty
-                            ? log.actorName
-                            : (log.actorEmail ?? log.actorId),
+              Card(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columnSpacing: 28,
+                    headingRowHeight: 44,
+                    dataRowMinHeight: 56,
+                    dataRowMaxHeight: 96,
+                    columns: [
+                      DataColumn(
+                        label: Text(context.t(en: 'User', ar: 'المستخدم')),
                       ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (log.actorEmail != null)
-                              Text(
-                                log.actorEmail!,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            Text(
-                              '${_actionLabel(context, log.action)} • ${log.entityType}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            Text(
-                              AppFormatters.shortDateTime(log.createdAt),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                      DataColumn(
+                        label: Text(context.t(en: 'Email', ar: 'الايميل')),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          context.t(en: 'Task', ar: 'المهام المنفذة'),
                         ),
                       ),
-                      dense: true,
-                    ),
-                  );
-                },
+                      DataColumn(
+                        label: Text(context.t(en: 'Date', ar: 'التاريخ')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Activity', ar: 'النشاطات')),
+                      ),
+                    ],
+                    rows: [
+                      for (final log in filtered)
+                        _activityRow(context, log, userById[log.actorId]),
+                    ],
+                  ),
+                ),
               ),
           ],
         );
@@ -154,7 +148,8 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
     return logs.where((log) {
       final matchesEntity =
           _entityFilter == null || log.entityType == _entityFilter;
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           log.actorName.toLowerCase().contains(query) ||
           (log.actorId.toLowerCase().contains(query)) ||
           (log.actorEmail?.toLowerCase().contains(query) ?? false) ||
@@ -164,6 +159,69 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
       return matchesEntity && matchesQuery;
     }).toList();
   }
+}
+
+DataRow _activityRow(BuildContext context, ActivityLog log, AppUser? user) {
+  final name = log.actorName.trim().isNotEmpty
+      ? log.actorName.trim()
+      : (user?.name.trim().isNotEmpty ?? false)
+      ? user!.name.trim()
+      : '';
+  final email = log.actorEmail?.trim().isNotEmpty ?? false
+      ? log.actorEmail!.trim()
+      : (user?.email.trim().isNotEmpty ?? false)
+      ? user!.email.trim()
+      : '';
+  final displayName = name.isNotEmpty
+      ? name
+      : (email.isNotEmpty
+            ? email
+            : (log.actorId.isNotEmpty ? log.actorId : '-'));
+  final displayEmail = email.isNotEmpty
+      ? email
+      : (log.actorId.isNotEmpty ? log.actorId : '-');
+  final task = _actionLabel(context, log.action);
+  final activityBase = log.entityType.isNotEmpty
+      ? log.entityType
+      : context.t(en: 'General', ar: 'عام');
+  final activity = (log.entityId?.isNotEmpty ?? false)
+      ? '$activityBase - ${log.entityId}'
+      : activityBase;
+
+  return DataRow(
+    cells: [
+      DataCell(_cellText(context, displayName, maxWidth: 180)),
+      DataCell(_cellText(context, displayEmail, maxWidth: 220)),
+      DataCell(_cellText(context, task, maxWidth: 200)),
+      DataCell(
+        _cellText(
+          context,
+          AppFormatters.shortDateTime(log.createdAt),
+          maxWidth: 170,
+          maxLines: 1,
+        ),
+      ),
+      DataCell(_cellText(context, activity, maxWidth: 260)),
+    ],
+  );
+}
+
+Widget _cellText(
+  BuildContext context,
+  String value, {
+  required double maxWidth,
+  int maxLines = 2,
+}) {
+  return SizedBox(
+    width: maxWidth,
+    child: Text(
+      value,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      softWrap: true,
+      style: Theme.of(context).textTheme.bodyMedium,
+    ),
+  );
 }
 
 String _actionLabel(BuildContext context, String action) {

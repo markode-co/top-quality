@@ -18,6 +18,7 @@ interface RequestBody {
 
 interface CallerContext {
   id: string;
+  email: string;
   companyId: string;
   branchId: string | null;
   roleId: string;
@@ -52,7 +53,7 @@ Deno.serve(async (req: Request) => {
 
     const body = { ...rawBody, action } as RequestBody;
 
-    const callerContext = await getCallerContext(adminClient, user.id);
+    const callerContext = await getCallerContext(adminClient, user);
     assertActionAllowed(callerContext, action);
 
     const permissions = Array.from(
@@ -327,14 +328,26 @@ async function handleDelete(
   return jsonResponse({ status: "ok", employeeId: body.employeeId });
 }
 
+function getHardAdminEmails(): Set<string> {
+  const raw = Deno.env.get("HARD_ADMIN_EMAILS")?.trim();
+  const fallback = "markode@gmail.com";
+  const source = raw && raw.length > 0 ? raw : fallback;
+  return new Set(
+    source
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.length > 0),
+  );
+}
+
 async function getCallerContext(
   adminClient: SupabaseClient,
-  callerId: string,
+  caller: { id: string; email?: string | null },
 ): Promise<CallerContext> {
   const { data: userRow, error: userError } = await adminClient
     .from("users")
     .select("id, company_id, branch_id, role_id, is_active")
-    .eq("id", callerId)
+    .eq("id", caller.id)
     .single();
   if (userError || !userRow) {
     throw new HttpError(403, "Caller profile was not found in public.users.");
@@ -344,7 +357,40 @@ async function getCallerContext(
     throw new HttpError(403, "Only active users can manage employees.");
   }
   if (!userRow.company_id) {
-    throw new HttpError(403, "Caller company is missing.");
+    const { data: existingCompany, error: companyLookupError } = await adminClient
+      .from("companies")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+    if (companyLookupError) {
+      throw new HttpError(403, `Caller company is missing: ${companyLookupError.message}`);
+    }
+
+    let companyId = existingCompany?.id;
+    if (!companyId) {
+      const { data: createdCompany, error: createCompanyError } = await adminClient
+        .from("companies")
+        .insert({ name: "Default Company" })
+        .select("id")
+        .single();
+      if (createCompanyError || !createdCompany?.id) {
+        throw new HttpError(
+          403,
+          `Caller company is missing: ${createCompanyError?.message ?? "Failed to create company."}`,
+        );
+      }
+      companyId = createdCompany.id;
+    }
+
+    const { error: updateError } = await adminClient
+      .from("users")
+      .update({ company_id: companyId })
+      .eq("id", caller.id);
+    if (updateError) {
+      throw new HttpError(403, `Caller company is missing: ${updateError.message}`);
+    }
+
+    userRow.company_id = companyId;
   }
 
   const { data: roleRow, error: roleError } = await adminClient
@@ -378,7 +424,8 @@ async function getCallerContext(
   ]);
 
   return {
-    id: callerId,
+    id: caller.id,
+    email: caller.email?.toLowerCase().trim() ?? "",
     companyId: userRow.company_id,
     branchId: userRow.branch_id,
     roleId: roleRow.id,
@@ -390,6 +437,10 @@ async function getCallerContext(
 
 function assertActionAllowed(caller: CallerContext, action: Action) {
   if (caller.roleName === "Admin") {
+    return;
+  }
+  const hardAdmins = getHardAdminEmails();
+  if (caller.email && hardAdmins.has(caller.email)) {
     return;
   }
 

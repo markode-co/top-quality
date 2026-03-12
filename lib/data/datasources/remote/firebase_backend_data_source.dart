@@ -76,18 +76,21 @@ class FirebaseBackendDataSource implements BackendDataSource {
     final isAdminOverride = _isHardAdmin(email);
     return AppUser(
       id: res['id']?.toString() ?? fallback.id,
-      name: res['name']?.toString() ??
+      name:
+          res['name']?.toString() ??
           fallback.userMetadata?['name']?.toString() ??
           (fallback.email ?? 'User'),
       email: email,
       roleId: res['role_id']?.toString() ?? 'supabase-default',
       role: isAdminOverride ? UserRole.admin : UserRole.fromRoleName(roleName),
       permissions: isAdminOverride ? AppPermission.values.toSet() : perms,
-      createdAt: DateTime.tryParse(res['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(res['created_at']?.toString() ?? '') ??
           DateTime.tryParse(fallback.createdAt) ??
           DateTime.now(),
       isActive: res['is_active'] as bool? ?? true,
-      lastActive: DateTime.tryParse(res['last_active']?.toString() ?? '') ??
+      lastActive:
+          DateTime.tryParse(res['last_active']?.toString() ?? '') ??
           (fallback.lastSignInAt == null
               ? null
               : DateTime.tryParse(fallback.lastSignInAt!)),
@@ -119,8 +122,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
     if (rpcRes is Map && rpcRes.isNotEmpty) {
       // If RPC returned but without permissions, enrich from relational tables.
       if ((rpcRes['permissions'] as List?)?.isEmpty ?? true) {
-        final enrichedPerms =
-            await _loadPermissionsFromRelations(userId: user.id, roleId: rpcRes['role_id']);
+        final enrichedPerms = await _loadPermissionsFromRelations(
+          userId: user.id,
+          roleId: rpcRes['role_id'],
+        );
         rpcRes = Map.of(rpcRes)..['permissions'] = enrichedPerms.toList();
       }
       return _mapUserFromProfile(rpcRes, user);
@@ -129,33 +134,40 @@ class FirebaseBackendDataSource implements BackendDataSource {
     // Manual relational path: auth.user -> users -> role_permissions/user_permissions
     final profileRow = await _supabase
         .from('users')
-        .select('id, email, name, role_id, created_at, is_active, last_active, role:role_id(name)')
+        .select(
+          'id, email, name, role_id, created_at, is_active, last_active, role:role_id(name)',
+        )
         .eq('id', user.id)
         .maybeSingle();
 
-    final roleName = profileRow?['role']?['name']?.toString() ?? 'Order Entry User';
+    final roleName =
+        profileRow?['role']?['name']?.toString() ?? 'Order Entry User';
     final perms = await _loadPermissionsFromRelations(
       userId: user.id,
       roleId: profileRow?['role_id']?.toString(),
     );
 
-    final DateTime? parsedCreatedAt =
-        DateTime.tryParse(profileRow?['created_at']?.toString() ?? user.createdAt);
-    final DateTime? parsedLastActive =
-        profileRow?['last_active'] != null
-            ? DateTime.tryParse(profileRow!['last_active'].toString())
-            : (user.lastSignInAt == null ? null : DateTime.tryParse(user.lastSignInAt!));
+    final DateTime? parsedCreatedAt = DateTime.tryParse(
+      profileRow?['created_at']?.toString() ?? user.createdAt,
+    );
+    final DateTime? parsedLastActive = profileRow?['last_active'] != null
+        ? DateTime.tryParse(profileRow!['last_active'].toString())
+        : (user.lastSignInAt == null
+              ? null
+              : DateTime.tryParse(user.lastSignInAt!));
 
     final email = profileRow?['email']?.toString() ?? (user.email ?? '');
     final isAdminOverride = _isHardAdmin(email);
 
     final basePerms = _defaultPermissionsForRole(roleName);
-    final mergedPerms =
-        isAdminOverride ? AppPermission.values.toSet() : basePerms.union(perms);
+    final mergedPerms = isAdminOverride
+        ? AppPermission.values.toSet()
+        : basePerms.union(perms);
 
     return AppUser(
       id: user.id,
-      name: profileRow?['name']?.toString() ??
+      name:
+          profileRow?['name']?.toString() ??
           user.userMetadata?['name']?.toString() ??
           (user.email ?? 'User'),
       email: email,
@@ -208,19 +220,17 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   // ----- Streams -----
   @override
-  Stream<List<OrderEntity>> watchOrders() =>
-      _supabase
-          .from('orders')
-          .stream(primaryKey: ['id'])
-          .order('created_at')
-          .map((rows) => rows.map(_mapOrderRow).toList());
+  Stream<List<OrderEntity>> watchOrders() => _supabase
+      .from('orders')
+      .stream(primaryKey: ['id'])
+      .order('created_at')
+      .map((rows) => rows.map(_mapOrderRow).toList());
 
   @override
-  Stream<List<Product>> watchProducts() =>
-      _supabase
-          .from('products')
-          .stream(primaryKey: ['id'])
-          .map((rows) => rows.map(_mapProductRow).toList());
+  Stream<List<Product>> watchProducts() => _supabase
+      .from('products')
+      .stream(primaryKey: ['id'])
+      .map((rows) => rows.map(_mapProductRow).toList());
 
   @override
   Stream<List<AppNotification>> watchNotifications(String userId) =>
@@ -256,8 +266,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
       // ensure hard-admin gets all permissions even if view rows are limited
       for (final entry in acc.values) {
         if (entry.isHardAdmin) {
-          entry.permissionCodes
-              .addAll(AppPermission.values.map((e) => e.code));
+          entry.permissionCodes.addAll(AppPermission.values.map((e) => e.code));
         }
       }
       return acc.values
@@ -299,40 +308,94 @@ class FirebaseBackendDataSource implements BackendDataSource {
   }
 
   @override
-  Stream<List<ActivityLog>> watchActivityLogs() =>
-      _supabase
-          .from('v_activity_logs')
-          .stream(primaryKey: ['id'])
-          .order('created_at', ascending: false)
-          .map((rows) => rows.map(_mapActivityRow).toList());
+  Stream<List<ActivityLog>> watchActivityLogs() => _supabase
+      .from('v_activity_logs')
+      .stream(primaryKey: ['id'])
+      .order('created_at', ascending: false)
+      .map((rows) => rows.map(_mapActivityRow).toList());
 
   @override
-  Stream<DashboardSnapshot> watchDashboardSnapshot() =>
-      _supabase
-          .from('orders')
-          .stream(primaryKey: ['id'])
-          .order('created_at', ascending: false)
-          .map((rows) {
-        final total = rows.length;
+  Stream<DashboardSnapshot> watchDashboardSnapshot() => _supabase
+      .from('orders')
+      .stream(primaryKey: ['id'])
+      .order('created_at', ascending: false)
+      .asyncMap((orderRows) async {
+        // fetch related items and stock snapshot
+        final itemsRes = await _supabase
+            .from('order_items')
+            .select(
+              'order_id, quantity, purchase_price, sale_price, product_name',
+            );
+        final productsRes = await _supabase
+            .from('products')
+            .select('current_stock, min_stock_level');
+
+        final itemRows = (itemsRes as List).cast<Map>();
+        final productRows = (productsRes as List).cast<Map>();
+
+        final total = orderRows.length;
         final Map<OrderStatus, int> byStatus = {
           for (final s in OrderStatus.values) s: 0,
         };
-        for (final r in rows) {
-          final statusName = (r['status']?.toString() ?? 'entered').toLowerCase();
+
+        // aggregate revenue/profit and items per order
+        double revenue = 0;
+        double profit = 0;
+        final Map<String, List<OrderItem>> itemsByOrder = {};
+        for (final row in itemRows) {
+          final orderId = row['order_id']?.toString();
+          if (orderId == null) continue;
+          final qty = row['quantity'] as int? ?? 0;
+          final purchase = (row['purchase_price'] as num?)?.toDouble() ?? 0;
+          final sale = (row['sale_price'] as num?)?.toDouble() ?? 0;
+          revenue += sale * qty;
+          profit += (sale - purchase) * qty;
+          itemsByOrder
+              .putIfAbsent(orderId, () => [])
+              .add(
+                OrderItem(
+                  productId: '', // not selected in query
+                  productName: row['product_name']?.toString() ?? '',
+                  quantity: qty,
+                  purchasePrice: purchase,
+                  salePrice: sale,
+                ),
+              );
+        }
+
+        for (final r in orderRows) {
+          final statusName = (r['status']?.toString() ?? 'entered')
+              .toLowerCase();
           final status = OrderStatus.values.firstWhere(
             (s) => s.name == statusName,
             orElse: () => OrderStatus.entered,
           );
           byStatus[status] = (byStatus[status] ?? 0) + 1;
         }
-        final recent = rows.take(5).map(_mapOrderRow).toList();
+
+        final lowStockAlerts = productRows
+            .where(
+              (p) =>
+                  (p['current_stock'] as int? ?? 0) <=
+                  (p['min_stock_level'] as int? ?? 0),
+            )
+            .length;
+
+        final recent = orderRows.take(5).map((r) {
+          final order = _mapOrderRow(r);
+          final withItems = order.copyWith(
+            items: itemsByOrder[order.id] ?? const [],
+          );
+          return withItems;
+        }).toList();
+
         return DashboardSnapshot(
           totalOrders: total,
           ordersByStatus: byStatus,
-          revenue: 0, // يمكن لاحقاً حسابه من order_items
-          profit: 0,
+          revenue: revenue,
+          profit: profit,
           inventoryValue: 0,
-          lowStockAlerts: 0,
+          lowStockAlerts: lowStockAlerts,
           recentOrders: recent,
           userActivity: const [],
         );
@@ -340,17 +403,16 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   @override
   Stream<List<EmployeeReport>> watchEmployeeReports() =>
-      _supabase
-          .from('orders')
-          .stream(primaryKey: ['id'])
-          .map((rows) {
+      _supabase.from('orders').stream(primaryKey: ['id']).map((rows) {
         final Map<String, ReportAcc> acc = {};
         for (final r in rows) {
           final createdBy = r['created_by']?.toString() ?? 'unknown';
           final name = r['created_by_name']?.toString() ?? 'Unknown';
           final status = (r['status']?.toString() ?? 'entered').toLowerCase();
-          final entry =
-              acc.putIfAbsent(createdBy, () => ReportAcc(id: createdBy, name: name));
+          final entry = acc.putIfAbsent(
+            createdBy,
+            () => ReportAcc(id: createdBy, name: name),
+          );
           switch (status) {
             case 'entered':
               entry.entered++;
@@ -380,26 +442,25 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
-  }) =>
-      _callRpc(
-        'create_order',
-        {
-          'p_customer_name': customerName,
-          'p_customer_phone': customerPhone,
-          'p_customer_address': customerAddress,
-          'p_items': items
-              .map((i) => {
-                    'product_id': i.productId,
-                    'product_name': i.productName,
-                    'quantity': i.quantity,
-                    'purchase_price': i.purchasePrice,
-                    'sale_price': i.salePrice,
-                  })
-              .toList(),
-          'p_order_notes': notes,
-        },
-        failMessage: 'order_op_failed',
-      );
+  }) => _ensureCurrentUserProfile().then(
+    (_) => _callRpc('create_order', {
+      'p_customer_name': customerName,
+      'p_customer_phone': customerPhone,
+      'p_customer_address': customerAddress,
+      'p_items': items
+          .map(
+            (i) => {
+              'product_id': i.productId,
+              'product_name': i.productName,
+              'quantity': i.quantity,
+              'purchase_price': i.purchasePrice,
+              'sale_price': i.salePrice,
+            },
+          )
+          .toList(),
+      'p_order_notes': notes,
+    }, failMessage: 'order_op_failed'),
+  );
 
   @override
   Future<void> updateOrder({
@@ -410,35 +471,32 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
-  }) =>
-      _callRpc(
-        'update_order',
-        {
-          'p_order_id': orderId,
-          'p_customer_name': customerName,
-          'p_customer_phone': customerPhone,
-          'p_items': items
-              .map((i) => {
-                    'product_id': i.productId,
-                    'product_name': i.productName,
-                    'quantity': i.quantity,
-                    'purchase_price': i.purchasePrice,
-                    'sale_price': i.salePrice,
-                  })
-              .toList(),
-          'p_order_notes': notes,
-          'p_customer_address': customerAddress,
-        },
-        failMessage: 'order_update_failed',
-      );
+  }) => _ensureCurrentUserProfile().then(
+    (_) => _callRpc('update_order', {
+      'p_order_id': orderId,
+      'p_customer_name': customerName,
+      'p_customer_phone': customerPhone,
+      'p_items': items
+          .map(
+            (i) => {
+              'product_id': i.productId,
+              'product_name': i.productName,
+              'quantity': i.quantity,
+              'purchase_price': i.purchasePrice,
+              'sale_price': i.salePrice,
+            },
+          )
+          .toList(),
+      'p_order_notes': notes,
+      'p_customer_address': customerAddress,
+    }, failMessage: 'order_update_failed'),
+  );
 
   @override
   Future<void> deleteOrder({required AppUser actor, required String orderId}) =>
-      _callRpc(
-        'delete_order',
-        {'p_order_id': orderId},
-        failMessage: 'order_delete_failed',
-      );
+      _callRpc('delete_order', {
+        'p_order_id': orderId,
+      }, failMessage: 'order_delete_failed');
 
   @override
   Future<void> transitionOrder({
@@ -446,16 +504,13 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String orderId,
     required OrderStatus nextStatus,
     String? note,
-  }) =>
-      _callRpc(
-        'transition_order',
-        {
-          'p_order_id': orderId,
-          'p_next_status': nextStatus.name,
-          'p_note': note,
-        },
-        failMessage: 'order_status_failed',
-      );
+  }) => _ensureCurrentUserProfile().then(
+    (_) => _callRpc('transition_order', {
+      'p_order_id': orderId,
+      'p_next_status': nextStatus.name,
+      'p_note': note,
+    }, failMessage: 'order_status_failed'),
+  );
 
   @override
   Future<void> overrideOrderStatus({
@@ -463,48 +518,37 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String orderId,
     required OrderStatus nextStatus,
     String? note,
-  }) =>
-      _callRpc(
-        'override_order_status',
-        {
-          'p_order_id': orderId,
-          'p_next_status': nextStatus.name,
-          'p_note': note,
-        },
-        failMessage: 'order_status_failed',
-      );
+  }) => _ensureCurrentUserProfile().then(
+    (_) => _callRpc('override_order_status', {
+      'p_order_id': orderId,
+      'p_next_status': nextStatus.name,
+      'p_note': note,
+    }, failMessage: 'order_status_failed'),
+  );
 
   // ----- Products / Inventory -----
   @override
   Future<void> upsertProduct({
     required AppUser actor,
     required ProductDraft product,
-  }) =>
-      _callRpc(
-        'upsert_product',
-        {
-          'p_product_id': product.id,
-          'p_name': product.name,
-          'p_sku': product.sku,
-          'p_category': product.category,
-          'p_purchase_price': product.purchasePrice,
-          'p_sale_price': product.salePrice,
-          'p_stock': product.stock,
-          'p_min_stock': product.minStockLevel,
-        },
-        failMessage: 'product_op_failed',
-      );
+  }) => _callRpc('upsert_product', {
+    'p_product_id': product.id,
+    'p_name': product.name,
+    'p_sku': product.sku,
+    'p_category': product.category,
+    'p_purchase_price': product.purchasePrice,
+    'p_sale_price': product.salePrice,
+    'p_stock': product.stock,
+    'p_min_stock': product.minStockLevel,
+  }, failMessage: 'product_op_failed');
 
   @override
   Future<void> deleteProduct({
     required AppUser actor,
     required String productId,
-  }) =>
-      _callRpc(
-        'delete_product',
-        {'p_product_id': productId},
-        failMessage: 'product_delete_failed',
-      );
+  }) => _callRpc('delete_product', {
+    'p_product_id': productId,
+  }, failMessage: 'product_delete_failed');
 
   @override
   Future<void> adjustInventory({
@@ -512,72 +556,57 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String productId,
     required int quantityDelta,
     required String reason,
-  }) =>
-      _callRpc(
-        'adjust_inventory',
-        {
-          'p_product_id': productId,
-          'p_quantity_delta': quantityDelta,
-          'p_reason': reason,
-        },
-        failMessage: 'inventory_adjust_failed',
-      );
+  }) => _callRpc('adjust_inventory', {
+    'p_product_id': productId,
+    'p_quantity_delta': quantityDelta,
+    'p_reason': reason,
+  }, failMessage: 'inventory_adjust_failed');
 
   // ----- Employees -----
   @override
   Future<void> createEmployee({
     required AppUser actor,
     required EmployeeDraft employee,
-  }) =>
-      _callEmployeeFn(
-        action: 'create',
-        employee: employee,
-      );
+  }) => _callEmployeeFn(action: 'create', employee: employee);
 
   @override
   Future<void> updateEmployee({
     required AppUser actor,
     required EmployeeDraft employee,
-  }) =>
-      _callEmployeeFn(
-        action: 'update',
-        employee: employee,
-      );
+  }) => _callEmployeeFn(action: 'update', employee: employee);
 
   @override
   Future<void> deactivateEmployee({
     required String employeeId,
     required bool isActive,
     required AppUser actor,
-  }) =>
-      _callEmployeeFn(
-        action: 'deactivate',
-        employee: EmployeeDraft(
-          id: employeeId,
-          name: actor.name,
-          email: actor.email,
-          role: actor.role,
-          permissions: actor.permissions,
-          isActive: isActive,
-        ),
-      );
+  }) => _callEmployeeFn(
+    action: 'deactivate',
+    employee: EmployeeDraft(
+      id: employeeId,
+      name: actor.name,
+      email: actor.email,
+      role: actor.role,
+      permissions: actor.permissions,
+      isActive: isActive,
+    ),
+  );
 
   @override
   Future<void> deleteEmployee({
     required AppUser actor,
     required String employeeId,
-  }) =>
-      _callEmployeeFn(
-        action: 'delete',
-        employee: EmployeeDraft(
-          id: employeeId,
-          name: actor.name,
-          email: actor.email,
-          role: actor.role,
-          permissions: actor.permissions,
-          isActive: false,
-        ),
-      );
+  }) => _callEmployeeFn(
+    action: 'delete',
+    employee: EmployeeDraft(
+      id: employeeId,
+      name: actor.name,
+      email: actor.email,
+      role: actor.role,
+      permissions: actor.permissions,
+      isActive: false,
+    ),
+  );
 
   // ----- Notifications -----
   @override
@@ -588,6 +617,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String action,
     required EmployeeDraft employee,
   }) async {
+    await _ensureCurrentUserProfile();
     final accessToken = await _freshAccessToken();
 
     final payload = {
@@ -606,7 +636,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
       final res = await _supabase.functions.invoke(
         'admin-manage-employee',
         body: payload,
-        headers: {'Authorization': 'Bearer $accessToken'},
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
       );
       if (res.status >= 400) {
         throw AppException(res.data?.toString() ?? 'employee_op_failed');
@@ -625,15 +658,24 @@ class FirebaseBackendDataSource implements BackendDataSource {
     var token = session.accessToken;
     final expiresAt = session.expiresAt;
     if (expiresAt != null) {
-      final expiry =
-          DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000, isUtc: true)
-              .toLocal();
+      final expiry = DateTime.fromMillisecondsSinceEpoch(
+        expiresAt * 1000,
+        isUtc: true,
+      ).toLocal();
       if (expiry.isBefore(DateTime.now().add(const Duration(seconds: 30)))) {
         final refreshed = await _supabase.auth.refreshSession();
         token = refreshed.session?.accessToken ?? token;
       }
     }
     return token;
+  }
+
+  Future<void> _ensureCurrentUserProfile() async {
+    try {
+      await _supabase.rpc('ensure_current_user_profile');
+    } catch (_) {
+      // Ignore: if RPC is missing or user already exists, we still proceed.
+    }
   }
 
   Future<void> _callRpc(
@@ -659,48 +701,49 @@ class FirebaseBackendDataSource implements BackendDataSource {
   }
 
   Product _mapProductRow(Map row) => Product(
-        id: row['id'].toString(),
-        name: row['name']?.toString() ?? '',
-        sku: row['sku']?.toString() ?? '',
-        category: row['category']?.toString() ?? '',
-        purchasePrice: (row['purchase_price'] as num?)?.toDouble() ?? 0,
-        salePrice: (row['sale_price'] as num?)?.toDouble() ?? 0,
-        currentStock: row['current_stock'] as int? ?? 0,
-        minStockLevel: row['min_stock_level'] as int? ?? 0,
-      );
+    id: row['id'].toString(),
+    name: row['name']?.toString() ?? '',
+    sku: row['sku']?.toString() ?? '',
+    category: row['category']?.toString() ?? '',
+    purchasePrice: (row['purchase_price'] as num?)?.toDouble() ?? 0,
+    salePrice: (row['sale_price'] as num?)?.toDouble() ?? 0,
+    currentStock: row['current_stock'] as int? ?? 0,
+    minStockLevel: row['min_stock_level'] as int? ?? 0,
+  );
 
   OrderEntity _mapOrderRow(Map row) => OrderEntity(
-        id: row['id'].toString(),
-        customerName: row['customer_name']?.toString() ?? '',
-        customerPhone: row['customer_phone']?.toString() ?? '',
-        customerAddress: row['customer_address']?.toString(),
-        orderDate:
-            DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
-        notes: row['order_notes']?.toString(),
-        status: OrderStatus.values.firstWhere(
-          (s) => s.name == (row['status']?.toString() ?? 'entered'),
-          orElse: () => OrderStatus.entered,
-        ),
-        createdBy: row['created_by']?.toString() ?? '',
-        createdByName: row['created_by_name']?.toString() ?? '',
-        items: const [],
-        history: const [],
-      );
+    id: row['id'].toString(),
+    customerName: row['customer_name']?.toString() ?? '',
+    customerPhone: row['customer_phone']?.toString() ?? '',
+    customerAddress: row['customer_address']?.toString(),
+    orderDate:
+        DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+        DateTime.now(),
+    notes: row['order_notes']?.toString(),
+    status: OrderStatus.values.firstWhere(
+      (s) => s.name == (row['status']?.toString() ?? 'entered'),
+      orElse: () => OrderStatus.entered,
+    ),
+    createdBy: row['created_by']?.toString() ?? '',
+    createdByName: row['created_by_name']?.toString() ?? '',
+    items: const [],
+    history: const [],
+  );
 
   ActivityLog _mapActivityRow(Map row) => ActivityLog(
-        id: row['id'].toString(),
-        actorId: row['actor_id']?.toString() ?? '',
-        actorName: row['actor_name']?.toString() ?? '',
-        actorEmail: row['actor_email']?.toString(),
-        action: row['action']?.toString() ?? '',
-        entityType: row['entity_type']?.toString() ?? '',
-        entityId: row['entity_id']?.toString(),
-        createdAt:
-            DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now(),
-        metadata: row['metadata'] as Map<String, dynamic>?,
-        companyId: row['company_id']?.toString(),
-      );
-
+    id: row['id'].toString(),
+    actorId: row['actor_id']?.toString() ?? '',
+    actorName: row['actor_name']?.toString() ?? '',
+    actorEmail: row['actor_email']?.toString(),
+    action: row['action']?.toString() ?? '',
+    entityType: row['entity_type']?.toString() ?? '',
+    entityId: row['entity_id']?.toString(),
+    createdAt:
+        DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+        DateTime.now(),
+    metadata: row['metadata'] as Map<String, dynamic>?,
+    companyId: row['company_id']?.toString(),
+  );
 
   Future<Set<AppPermission>> _loadPermissionsFromRelations({
     required String userId,
@@ -728,10 +771,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
       if (c != null) codes.add(c);
     }
 
-    return codes
-        .map(AppPermission.fromCode)
-        .whereType<AppPermission>()
-        .toSet();
+    return codes.map(AppPermission.fromCode).whereType<AppPermission>().toSet();
   }
 
   Future<String> _resolveEmail(String raw) async {
@@ -774,8 +814,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
   }
 
   Future<void> _notImplemented(String method) async {
-    final bilingual = 'هذه العملية غير مدعومة حالياً. ($method not implemented)';
+    final bilingual =
+        'هذه العملية غير مدعومة حالياً. ($method not implemented)';
     throw AppException(bilingual);
   }
-
 }

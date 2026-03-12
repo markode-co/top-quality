@@ -35,64 +35,72 @@ class DashboardPage extends ConsumerWidget {
                 children: [
                   SizedBox(
                     width: width,
-                    height: 196,
-                    child: StatCard(
-                      title: context.t(
-                        en: 'Total Orders',
-                        ar: 'إجمالي الطلبات',
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 196),
+                      child: StatCard(
+                        title: context.t(
+                          en: 'Total Orders',
+                          ar: 'إجمالي الطلبات',
+                        ),
+                        value: '${snapshot.totalOrders}',
+                        subtitle: context.t(
+                          en: 'Across all workflow stages',
+                          ar: 'عبر جميع مراحل سير العمل',
+                        ),
+                        icon: Icons.receipt_long_outlined,
+                        color: const Color(0xFF0C6B58),
                       ),
-                      value: '${snapshot.totalOrders}',
-                      subtitle: context.t(
-                        en: 'Across all workflow stages',
-                        ar: 'عبر جميع مراحل سير العمل',
-                      ),
-                      icon: Icons.receipt_long_outlined,
-                      color: const Color(0xFF0C6B58),
                     ),
                   ),
                   SizedBox(
                     width: width,
-                    height: 196,
-                    child: StatCard(
-                      title: context.t(en: 'Revenue', ar: 'الإيراد'),
-                      value: AppFormatters.currency(snapshot.revenue),
-                      subtitle: context.t(
-                        en: 'Realized from shipped/completed orders',
-                        ar: 'متحقق من الطلبات المشحونة/المكتملة',
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 196),
+                      child: StatCard(
+                        title: context.t(en: 'Revenue', ar: 'الإيراد'),
+                        value: AppFormatters.currency(snapshot.revenue),
+                        subtitle: context.t(
+                          en: 'Realized from shipped/completed orders',
+                          ar: 'متحقق من الطلبات المشحونة/المكتملة',
+                        ),
+                        icon: Icons.payments_outlined,
+                        color: const Color(0xFFD97A29),
                       ),
-                      icon: Icons.payments_outlined,
-                      color: const Color(0xFFD97A29),
                     ),
                   ),
                   SizedBox(
                     width: width,
-                    height: 196,
-                    child: StatCard(
-                      title: context.t(en: 'Profit', ar: 'الربح'),
-                      value: AppFormatters.currency(snapshot.profit),
-                      subtitle: context.t(
-                        en: 'Calculated automatically per order',
-                        ar: 'يُحسب تلقائيًا لكل طلب',
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 196),
+                      child: StatCard(
+                        title: context.t(en: 'Profit', ar: 'الربح'),
+                        value: AppFormatters.currency(snapshot.profit),
+                        subtitle: context.t(
+                          en: 'Calculated automatically per order',
+                          ar: 'يُحسب تلقائيًا لكل طلب',
+                        ),
+                        icon: Icons.trending_up_outlined,
+                        color: const Color(0xFF1E64B7),
                       ),
-                      icon: Icons.trending_up_outlined,
-                      color: const Color(0xFF1E64B7),
                     ),
                   ),
                   SizedBox(
                     width: width,
-                    height: 196,
-                    child: StatCard(
-                      title: context.t(
-                        en: 'Low Stock Alerts',
-                        ar: 'تنبيهات نقص المخزون',
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 196),
+                      child: StatCard(
+                        title: context.t(
+                          en: 'Low Stock Alerts',
+                          ar: 'تنبيهات نقص المخزون',
+                        ),
+                        value: '${snapshot.lowStockAlerts}',
+                        subtitle: context.t(
+                          en: 'Products below minimum stock',
+                          ar: 'منتجات أقل من الحد الأدنى',
+                        ),
+                        icon: Icons.warning_amber_rounded,
+                        color: const Color(0xFFB63D3D),
                       ),
-                      value: '${snapshot.lowStockAlerts}',
-                      subtitle: context.t(
-                        en: 'Products below minimum stock',
-                        ar: 'منتجات أقل من الحد الأدنى',
-                      ),
-                      icon: Icons.warning_amber_rounded,
-                      color: const Color(0xFFB63D3D),
                     ),
                   ),
                 ],
