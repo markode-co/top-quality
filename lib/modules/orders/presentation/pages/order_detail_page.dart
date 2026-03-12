@@ -301,7 +301,7 @@ class _Info extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 220,
+      width: 180,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

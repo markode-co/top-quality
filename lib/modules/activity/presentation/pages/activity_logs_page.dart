@@ -110,57 +110,29 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                   return Card(
                     child: ListTile(
                       leading: const Icon(Icons.history),
-                      title: Text('${log.actorName} • ${log.action}'),
+                      title: Text(
+                        log.actorName.isNotEmpty
+                            ? log.actorName
+                            : (log.actorEmail ?? log.actorId),
+                      ),
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Chip(
-                                  label: Text(log.entityType),
-                                  avatar: const Icon(Icons.category_outlined),
-                                ),
-                                if (log.companyId != null)
-                                  Chip(
-                                    label: Text(
-                                      '${context.t(en: 'Company', ar: 'الشركة')}: ${log.companyId}',
-                                    ),
-                                    avatar: const Icon(Icons.apartment_outlined),
-                                  ),
-                                Text(
-                                  AppFormatters.shortDateTime(log.createdAt),
-                                ),
-                              ],
+                            if (log.actorEmail != null)
+                              Text(
+                                log.actorEmail!,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            Text(
+                              '${_actionLabel(context, log.action)} • ${log.entityType}',
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                            if (log.entityId != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  '${context.t(en: 'Entity ID', ar: 'معرّف الكيان')}: ${log.entityId}',
-                                ),
-                              ),
-                            if (log.metadata != null &&
-                                log.metadata!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: log.metadata!.entries.map((entry) {
-                                    final value = entry.value?.toString() ?? '';
-                                    return InputChip(
-                                      label: Text('${entry.key}: $value'),
-                                      avatar:
-                                          const Icon(Icons.data_object_outlined),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
+                            Text(
+                              AppFormatters.shortDateTime(log.createdAt),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ],
                         ),
                       ),
@@ -184,10 +156,42 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
           _entityFilter == null || log.entityType == _entityFilter;
       final matchesQuery = query.isEmpty ||
           log.actorName.toLowerCase().contains(query) ||
+          (log.actorId.toLowerCase().contains(query)) ||
+          (log.actorEmail?.toLowerCase().contains(query) ?? false) ||
           log.action.toLowerCase().contains(query) ||
           log.entityType.toLowerCase().contains(query) ||
           (log.entityId?.toLowerCase().contains(query) ?? false);
       return matchesEntity && matchesQuery;
     }).toList();
   }
+}
+
+String _actionLabel(BuildContext context, String action) {
+  final mapEn = {
+    'login': 'Login',
+    'logout': 'Logout',
+    'create_order': 'Create order',
+    'update_order': 'Update order',
+    'delete_order': 'Delete order',
+    'override_order_status': 'Override status',
+    'transition_order': 'Change status',
+    'upsert_product': 'Save product',
+    'delete_product': 'Delete product',
+    'admin-manage-employee': 'Employee action',
+    'diagnostics': 'Diagnostics',
+  };
+  final mapAr = {
+    'login': 'تسجيل دخول',
+    'logout': 'تسجيل خروج',
+    'create_order': 'إنشاء طلب',
+    'update_order': 'تعديل طلب',
+    'delete_order': 'حذف طلب',
+    'override_order_status': 'تجاوز الحالة',
+    'transition_order': 'تغيير الحالة',
+    'upsert_product': 'حفظ منتج',
+    'delete_product': 'حذف منتج',
+    'admin-manage-employee': 'عملية موظف',
+    'diagnostics': 'تشخيص',
+  };
+  return context.t(en: mapEn[action] ?? action, ar: mapAr[action] ?? action);
 }

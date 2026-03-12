@@ -3,6 +3,7 @@ class ActivityLog {
     required this.id,
     required this.actorId,
     required this.actorName,
+    this.actorEmail,
     required this.action,
     required this.entityType,
     required this.createdAt,
@@ -14,6 +15,7 @@ class ActivityLog {
   final String id;
   final String actorId;
   final String actorName;
+  final String? actorEmail;
   final String action;
   final String entityType;
   final String? entityId;
