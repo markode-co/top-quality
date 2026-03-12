@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/services/order_workflow_engine.dart';
-import 'package:top_quality/core/services/firebase_bootstrap.dart';
 import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
 import 'package:top_quality/data/datasources/remote/firebase_backend_data_source.dart';
 import 'package:top_quality/data/repositories_impl/auth_repository_impl.dart';
@@ -22,7 +21,7 @@ import 'package:top_quality/domain/usecases/sign_in.dart';
 import 'package:top_quality/domain/usecases/sign_out.dart';
 import 'package:top_quality/domain/usecases/transition_order.dart';
 
-final appModeProvider = Provider<AppMode>((ref) => FirebaseBootstrap.mode);
+final appModeProvider = Provider<AppMode>((ref) => AppMode.live);
 
 final appLocaleProvider = StateProvider<Locale>(
   (ref) => const Locale('ar', 'EG'),

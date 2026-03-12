@@ -110,7 +110,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
-                          authState.error.toString(),
+                          _translateAuthError(context, authState.error),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                           ),
@@ -157,11 +157,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     // Basic client-side validation before hitting Firebase.
     if (email.isEmpty || !email.contains('@')) {
-      setState(() => _localError = 'صيغة البريد غير صحيحة.');
+      setState(
+        () => _localError = context.t(
+          en: 'Invalid email format.',
+          ar: 'صيغة البريد غير صحيحة.',
+        ),
+      );
       return Future.value();
     }
     if (password.isEmpty || password.length < 6) {
-      setState(() => _localError = 'كلمة المرور يجب ألا تكون فارغة وأن لا تقل عن 6 أحرف.');
+      setState(
+        () => _localError = context.t(
+          en: 'Password must be at least 6 characters.',
+          ar: 'كلمة المرور يجب ألا تقل عن ٦ أحرف.',
+        ),
+      );
       return Future.value();
     }
 
@@ -170,5 +180,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           identifier: email,
           password: password,
         );
+  }
+}
+
+String _translateAuthError(BuildContext context, Object? error) {
+  final code = error?.toString() ?? '';
+  switch (code) {
+    case 'auth_invalid_credentials':
+      return context.t(
+        en: 'Email/username or password is incorrect.',
+        ar: 'البريد/اسم المستخدم أو كلمة المرور غير صحيحة.',
+      );
+    case 'auth_invalid_credential':
+      return context.t(
+        en: 'Your credential is invalid or expired. Re-enter or reset your password.',
+        ar: 'بيانات الاعتماد غير صالحة أو منتهية. أعد الإدخال أو أعد ضبط كلمة المرور.',
+      );
+    case 'auth_invalid_email':
+      return context.t(
+        en: 'Invalid email format.',
+        ar: 'صيغة البريد غير صحيحة.',
+      );
+    case 'auth_too_many_requests':
+      return context.t(
+        en: 'Too many attempts. Please wait and try again.',
+        ar: 'محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة.',
+      );
+    default:
+      return context.t(
+        en: 'Sign-in failed. Please try again.',
+        ar: 'تعذّر تسجيل الدخول. حاول مرة أخرى.',
+      );
   }
 }

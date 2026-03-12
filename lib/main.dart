@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/constants/app_constants.dart';
-import 'package:top_quality/core/services/firebase_bootstrap.dart';
 import 'package:top_quality/core/services/supabase_storage.dart';
 import 'package:top_quality/core/theme/app_theme.dart';
 import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
@@ -13,7 +12,6 @@ import 'package:top_quality/presentation/providers/app_providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await FirebaseBootstrap.initialize();
   await SupabaseStorageBootstrap.initialize();
 
   runApp(const ProviderScope(child: WarehouseApp()));
