@@ -14,6 +14,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
+  String? _localError;
 
   @override
   void dispose() {
@@ -115,6 +116,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                         ),
                       ),
+                    if (_localError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          _localError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
@@ -141,9 +152,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() {
+    final email = _identifierController.text.trim();
+    final password = _passwordController.text;
+
+    // Basic client-side validation before hitting Firebase.
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _localError = 'صيغة البريد غير صحيحة.');
+      return Future.value();
+    }
+    if (password.isEmpty || password.length < 6) {
+      setState(() => _localError = 'كلمة المرور يجب ألا تكون فارغة وأن لا تقل عن 6 أحرف.');
+      return Future.value();
+    }
+
+    setState(() => _localError = null);
     return ref.read(authControllerProvider.notifier).signIn(
-          identifier: _identifierController.text.trim(),
-          password: _passwordController.text.trim(),
+          identifier: email,
+          password: password,
         );
   }
 }
