@@ -15,7 +15,15 @@ class OrderDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final order = ref.watch(orderByIdProvider(orderId));
+    final detail = ref.watch(orderDetailProvider(orderId));
+
+    if (detail.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final order = detail.value ?? ref.watch(orderByIdProvider(orderId));
     if (order == null) {
       return Scaffold(
         body: EmptyPlaceholder(
@@ -36,7 +44,7 @@ class OrderDetailPage extends ConsumerWidget {
     final canOverride = user.hasPermission(AppPermission.ordersOverride);
 
     return Scaffold(
-      appBar: AppBar(title: Text(order.id)),
+      appBar: AppBar(title: Text('طلب رقم ${order.orderNo}')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

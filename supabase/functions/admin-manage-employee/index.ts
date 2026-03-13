@@ -180,19 +180,36 @@ async function createEmployee(
 
   const userId = authUser.user.id;
 
-  const { error: dbErr } = await (admin.from("users") as any).insert({
-    id: userId,
+  const profile = {
     company_id: caller.companyId,
     branch_id: caller.branchId,
     name,
     email,
     role_id: role.id,
     is_active: body.isActive ?? true,
-  });
+  };
 
-  if (dbErr) {
+  // Prefer UPDATE because a trigger already created the profile row when auth user was inserted.
+  const { data: updatedRows, error: updateErr } = await (admin.from("users") as any)
+    .update(profile)
+    .eq("id", userId)
+    .select("id");
+
+  if (updateErr) {
     await admin.auth.admin.deleteUser(userId);
-    throw new HttpError(400, dbErr.message);
+    throw new HttpError(400, updateErr.message);
+  }
+
+  // Safety: if the trigger did not run and no row was updated, fall back to UPSERT to keep idempotency.
+  if (!updatedRows || updatedRows.length === 0) {
+    const { error: upsertErr } = await (admin.from("users") as any).upsert(
+      { id: userId, ...profile },
+      { onConflict: "id" },
+    );
+    if (upsertErr) {
+      await admin.auth.admin.deleteUser(userId);
+      throw new HttpError(400, upsertErr.message);
+    }
   }
 
   if (permissions.length) {

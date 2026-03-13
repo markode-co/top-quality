@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: todoapp
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todoapp-config
+  namespace: todoapp
+data:
+  NODE_ENV: "production"
+  POSTGRES_HOST: "todoapp-postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "todoapp"
+  POSTGRES_USER: "todoapp"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: todoapp-secrets
+  namespace: todoapp
+type: Opaque
+data:
+  postgres-password: dG9kb2FwcF9wYXNzd29yZA==
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: todoapp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp-postgres
+  namespace: todoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todoapp-postgres
+  template:
+    metadata:
+      labels:
+        app: todoapp-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: todoapp
+            - name: POSTGRES_USER
+              value: todoapp
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: todoapp-secrets
+                  key: postgres-password
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todoapp-postgres
+  namespace: todoapp
+spec:
+  selector:
+    app: todoapp-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todoapp
+  namespace: todoapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: todoapp
+  template:
+    metadata:
+      labels:
+        app: todoapp
+    spec:
+      containers:
+        - name: todoapp
+          image: nginx
+          ports:
+            - containerPort: 3000
+          env:
+            - name: POSTGRES_HOST
+              value: todoapp-postgres
+            - name: POSTGRES_DB
+              value: todoapp
+            - name: POSTGRES_USER
+              value: todoapp
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: todoapp-secrets
+                  key: postgres-password
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: todoapp-service
+  namespace: todoapp
+spec:
+  type: NodePort
+  selector:
+    app: todoapp
+  ports:
+    - port: 80
+      targetPort: 3000
+      nodePort: 30007

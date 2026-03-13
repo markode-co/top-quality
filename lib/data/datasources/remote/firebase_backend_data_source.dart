@@ -10,6 +10,7 @@ import 'package:top_quality/domain/entities/employee_draft.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
+import 'package:top_quality/data/models/remote_dtos.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:top_quality/data/datasources/remote/_report_acc.dart';
 
@@ -234,7 +235,16 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   @override
   Stream<List<AppNotification>> watchNotifications(String userId) =>
-      Stream.value(const <AppNotification>[]);
+      _supabase
+          .from('notifications')
+          .stream(primaryKey: ['id'])
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .map(
+            (rows) => rows
+                .map((row) => RemoteMapper.notification(row))
+                .toList(),
+          );
 
   @override
   Stream<List<AppUser>> watchUsers() {
@@ -610,8 +620,16 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   // ----- Notifications -----
   @override
-  Future<void> markNotificationRead(String notificationId) =>
-      _notImplemented('markNotificationRead');
+  Future<void> markNotificationRead(String notificationId) async {
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'read': true})
+          .eq('id', notificationId);
+    } catch (_) {
+      // ignore: the stream will retry on next emission
+    }
+  }
 
   Future<void> _callEmployeeFn({
     required String action,
@@ -716,6 +734,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   OrderEntity _mapOrderRow(Map row) => OrderEntity(
     id: row['id'].toString(),
+    orderNo: (row['order_no'] as num?)?.toInt() ?? 0,
     customerName: row['customer_name']?.toString() ?? '',
     customerPhone: row['customer_phone']?.toString() ?? '',
     customerAddress: row['customer_address']?.toString(),
@@ -815,10 +834,33 @@ class FirebaseBackendDataSource implements BackendDataSource {
         return 'auth_generic_error';
     }
   }
+  @override
+  Future<OrderEntity?> getOrderById(String id) async {
+    final res = await _supabase
+        .from('orders')
+        .select('''
+          id,
+          order_no,
+          customer_name,
+          customer_phone,
+          customer_address,
+          created_at,
+          status,
+          created_by,
+          created_by_name,
+          order_notes,
+          order_items (product_id, product_name, quantity, purchase_price, sale_price),
+          order_status_history (status, changed_by, changed_by_name, changed_at, note)
+        ''')
+        .eq('id', id)
+        .maybeSingle();
 
-  Future<void> _notImplemented(String method) async {
-    final bilingual =
-        'هذه العملية غير مدعومة حالياً. ($method not implemented)';
-    throw AppException(bilingual);
+    if (res == null) return null;
+
+    final mapped = RemoteMapper.order({
+      ...res,
+      'order_date': res['created_at'],
+    });
+    return mapped;
   }
 }

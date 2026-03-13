@@ -126,6 +126,7 @@ create index if not exists idx_adj_product on public.inventory_adjustments(produ
 -- =====================================================
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
+  order_no bigint,
   company_id uuid references public.companies(id) on delete cascade,
   branch_id uuid references public.branches(id) on delete set null,
   customer_name text not null,
@@ -140,6 +141,7 @@ create table if not exists public.orders (
 );
 create index if not exists idx_orders_company on public.orders(company_id);
 create index if not exists idx_orders_status on public.orders(status);
+create unique index if not exists idx_orders_order_no on public.orders(order_no);
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),

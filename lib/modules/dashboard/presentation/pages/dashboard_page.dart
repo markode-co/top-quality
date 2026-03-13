@@ -132,7 +132,7 @@ class DashboardPage extends ConsumerWidget {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(order.customerName),
-                            subtitle: Text(order.id),
+                            subtitle: Text('طلب رقم ${order.orderNo}'),
                             trailing: StatusBadge(order.status),
                             onTap: () => onOpenOrder(order.id),
                           );
@@ -166,7 +166,7 @@ class DashboardPage extends ConsumerWidget {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(order.customerName),
-                            subtitle: Text(order.id),
+                            subtitle: Text('طلب رقم ${order.orderNo}'),
                             trailing: StatusBadge(order.status),
                             onTap: () => onOpenOrder(order.id),
                           );

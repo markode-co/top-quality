@@ -97,7 +97,7 @@ class UsersPage extends ConsumerWidget {
                         ),
                       if (canEdit)
                         IconButton(
-                          onPressed: () => _toggleActive(ref, user),
+                          onPressed: () => _toggleActive(context, ref, user),
                           icon: Icon(
                             user.isActive
                                 ? Icons.person_off_outlined
@@ -109,7 +109,7 @@ class UsersPage extends ConsumerWidget {
                         ),
                       if (canDelete)
                         IconButton(
-                          onPressed: () => _deleteUser(ref, user.id),
+                          onPressed: () => _deleteUser(context, ref, user.id),
                           icon: const Icon(Icons.delete_outline),
                           tooltip: context.t(
                             en: 'Delete employee',
@@ -315,17 +315,9 @@ class UsersPage extends ConsumerWidget {
     _showResult(context, ref);
   }
 
-  Future<void> _toggleActive(WidgetRef ref, AppUser user) async {
-    await ref
-        .read(operationsControllerProvider.notifier)
-        .deactivateEmployee(employeeId: user.id, isActive: !user.isActive);
-  }
+  Future<void> _toggleActive(BuildContext context, WidgetRef ref, AppUser user) async {\n    await ref\n        .read(operationsControllerProvider.notifier)\n        .deactivateEmployee(employeeId: user.id, isActive: !user.isActive);\n    if (!context.mounted) return;\n    showResult(context, ref);\n  }
 
-  Future<void> _deleteUser(WidgetRef ref, String userId) async {
-    await ref
-        .read(operationsControllerProvider.notifier)
-        .deleteEmployee(userId);
-  }
+  Future<void> _deleteUser(BuildContext context, WidgetRef ref, String userId) async {\n    await ref\n        .read(operationsControllerProvider.notifier)\n        .deleteEmployee(userId);\n    if (!context.mounted) return;\n    showResult(context, ref);\n  }
 
   void _showResult(BuildContext context, WidgetRef ref) {
     final state = ref.read(operationsControllerProvider);
@@ -343,3 +335,4 @@ class UsersPage extends ConsumerWidget {
     );
   }
 }
+

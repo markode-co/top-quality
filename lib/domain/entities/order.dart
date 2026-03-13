@@ -39,6 +39,7 @@ class OrderHistoryEntry {
 class OrderEntity {
   const OrderEntity({
     required this.id,
+    required this.orderNo,
     required this.customerName,
     required this.customerPhone,
     this.customerAddress,
@@ -52,6 +53,7 @@ class OrderEntity {
   });
 
   final String id;
+  final int orderNo;
   final String customerName;
   final String customerPhone;
   final String? customerAddress;
@@ -73,6 +75,7 @@ class OrderEntity {
 
   OrderEntity copyWith({
     String? id,
+    int? orderNo,
     String? customerName,
     String? customerPhone,
     String? customerAddress,
@@ -86,6 +89,7 @@ class OrderEntity {
   }) {
     return OrderEntity(
       id: id ?? this.id,
+      orderNo: orderNo ?? this.orderNo,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       customerAddress: customerAddress ?? this.customerAddress,

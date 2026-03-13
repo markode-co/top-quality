@@ -82,4 +82,6 @@ abstract class BackendDataSource {
     required String employeeId,
   });
   Future<void> markNotificationRead(String notificationId);
+
+  Future<OrderEntity?> getOrderById(String id);
 }

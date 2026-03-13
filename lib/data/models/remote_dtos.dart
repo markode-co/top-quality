@@ -138,6 +138,7 @@ class RemoteMapper {
 
     return OrderEntity(
       id: json['id'].toString(),
+      orderNo: (json['order_no'] as num?)?.toInt() ?? 0,
       customerName: json['customer_name']?.toString() ?? 'Unknown Customer',
       customerPhone: json['customer_phone']?.toString() ?? '',
       customerAddress: json['customer_address']?.toString(),

@@ -145,6 +145,11 @@ final orderByIdProvider = Provider.family<OrderEntity?, String>((ref, id) {
   return null;
 });
 
+final orderDetailProvider =
+    FutureProvider.autoDispose.family<OrderEntity?, String>((ref, id) {
+      return ref.watch(wmsRepositoryProvider).getOrderById(id);
+    });
+
 class AuthController extends StateNotifier<AsyncValue<void>> {
   AuthController(this._signIn, this._signOut) : super(const AsyncData(null));
 
@@ -192,6 +197,10 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     final user = _requireUser();
     state = const AsyncLoading();
     state = await AsyncValue.guard(() => action(user));
+  }
+
+  void _refreshUsersStream() {
+    _ref.invalidate(usersProvider);
   }
 
   Future<void> createOrder({
@@ -311,17 +320,23 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   Future<void> createEmployee(EmployeeDraft employee) {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .createEmployee(actor: user, employee: employee),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .createEmployee(actor: user, employee: employee);
+        _refreshUsersStream();
+      },
     );
   }
 
   Future<void> updateEmployee(EmployeeDraft employee) {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .updateEmployee(actor: user, employee: employee),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .updateEmployee(actor: user, employee: employee);
+        _refreshUsersStream();
+      },
     );
   }
 
@@ -330,21 +345,27 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required bool isActive,
   }) {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .deactivateEmployee(
-            actor: user,
-            employeeId: employeeId,
-            isActive: isActive,
-          ),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .deactivateEmployee(
+              actor: user,
+              employeeId: employeeId,
+              isActive: isActive,
+            );
+        _refreshUsersStream();
+      },
     );
   }
 
   Future<void> deleteEmployee(String employeeId) {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .deleteEmployee(actor: user, employeeId: employeeId),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .deleteEmployee(actor: user, employeeId: employeeId);
+        _refreshUsersStream();
+      },
     );
   }
 

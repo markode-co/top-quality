@@ -46,14 +46,42 @@ export function getRequiredEnv(name: string): string {
   return value;
 }
 
+// Best-effort lookup; returns null when missing instead of throwing.
+function getOptionalEnv(name: string): string | null {
+  return (
+    Deno.env.get(name)?.trim() ??
+    Deno.env.get(`FUNCTION_${name}`)?.trim() ??
+    null
+  );
+}
+
 /* ------------------------------------------------ */
 /* ADMIN CLIENT */
 /* ------------------------------------------------ */
 
+function getServiceRoleKey(): string {
+  const key =
+    getOptionalEnv("SECRET_KEY") ??
+    getOptionalEnv("SERVICE_ROLE_KEY") ??
+    getOptionalEnv("SERVICE_ROLE") ??
+    // legacy/project-local names
+    getOptionalEnv("SUPABASE_SERVICE_ROLE_KEY") ??
+    getOptionalEnv("SUPABASE_SECRET_KEY");
+
+  if (!key) {
+    throw new HttpError(
+      500,
+      "Missing service role key. Set SERVICE_ROLE_KEY as a function secret.",
+    );
+  }
+
+  return key;
+}
+
 export function createAdminClient(): SupabaseClient {
   return createClient(
     getRequiredEnv("SUPABASE_URL"),
-    getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    getServiceRoleKey(),
     {
       auth: {
         autoRefreshToken: false,
@@ -65,10 +93,20 @@ export function createAdminClient(): SupabaseClient {
 
 // Auth client for validating user tokens (uses anon/publishable key; no admin privileges).
 export function createAuthClient(): SupabaseClient {
+  const clientKey =
+    getOptionalEnv("SUPABASE_PUBLISHABLE_KEY") ??
+    getOptionalEnv("SUPABASE_ANON_KEY");
+
+  if (!clientKey) {
+    throw new HttpError(
+      500,
+      "Missing SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY",
+    );
+  }
+
   return createClient(
     getRequiredEnv("SUPABASE_URL"),
-    getRequiredEnv("SUPABASE_PUBLISHABLE_KEY") ||
-      getRequiredEnv("SUPABASE_ANON_KEY"),
+    clientKey,
     {
       auth: {
         autoRefreshToken: false,

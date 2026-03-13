@@ -1,0 +1,28 @@
+services:
+  todo-app:
+    build:
+      context: ./multi-container-app/app
+    depends_on:
+      - todo-database
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+      - "35729:35729"
+    develop:
+      watch:
+        - path: ./multi-container-app/app/package.json
+          action: rebuild
+        - path: ./multi-container-app/app
+          target: /usr/src/app
+          action: sync
+
+  todo-database:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

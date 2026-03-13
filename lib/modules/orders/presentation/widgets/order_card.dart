@@ -16,6 +16,8 @@ class OrderCard extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? trailing;
 
+  String _orderLabel(OrderEntity order) => 'طلب رقم ${order.orderNo}';
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -38,7 +40,7 @@ class OrderCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${order.id} • ${AppFormatters.shortDateTime(order.orderDate)}',
+                    '${_orderLabel(order)} • ${AppFormatters.shortDateTime(order.orderDate)}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],

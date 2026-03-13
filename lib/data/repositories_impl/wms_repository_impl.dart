@@ -186,4 +186,8 @@ class WmsRepositoryImpl implements WmsRepository {
 
   @override
   Stream<List<AppUser>> watchUsers() => _dataSource.watchUsers();
+
+  @override
+  Future<OrderEntity?> getOrderById(String id) =>
+      _dataSource.getOrderById(id);
 }

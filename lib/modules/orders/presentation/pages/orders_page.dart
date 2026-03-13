@@ -51,7 +51,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: context.t(
-                        en: 'Search by customer, phone, or order ID',
+                        en: 'Search by customer, phone, or order number',
                         ar: 'ابحث باسم العميل أو الهاتف أو رقم الطلب',
                       ),
                       prefixIcon: const Icon(Icons.search),
@@ -124,6 +124,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       final matchesStatus = _status == null || order.status == _status;
       final matchesQuery =
           query.isEmpty ||
+          order.orderNo.toString().contains(query) ||
           order.id.toLowerCase().contains(query) ||
           order.customerName.toLowerCase().contains(query) ||
           order.customerPhone.toLowerCase().contains(query);
