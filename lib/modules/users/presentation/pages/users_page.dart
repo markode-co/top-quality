@@ -314,25 +314,51 @@ class UsersPage extends ConsumerWidget {
     }
     _showResult(context, ref);
   }
+Future<void> _toggleActive(
+  BuildContext context,
+  WidgetRef ref,
+  AppUser user,
+) async {
+  await ref
+      .read(operationsControllerProvider.notifier)
+      .deactivateEmployee(
+        employeeId: user.id,
+        isActive: !user.isActive,
+      );
 
-  Future<void> _toggleActive(BuildContext context, WidgetRef ref, AppUser user) async {\n    await ref\n        .read(operationsControllerProvider.notifier)\n        .deactivateEmployee(employeeId: user.id, isActive: !user.isActive);\n    if (!context.mounted) return;\n    showResult(context, ref);\n  }
+  if (!context.mounted) return;
 
-  Future<void> _deleteUser(BuildContext context, WidgetRef ref, String userId) async {\n    await ref\n        .read(operationsControllerProvider.notifier)\n        .deleteEmployee(userId);\n    if (!context.mounted) return;\n    showResult(context, ref);\n  }
-
-  void _showResult(BuildContext context, WidgetRef ref) {
-    final state = ref.read(operationsControllerProvider);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          state.hasError
-              ? state.error.toString()
-              : context.t(
-                  en: 'Employee operation completed.',
-                  ar: 'اكتملت عملية الموظف.',
-                ),
-        ),
-      ),
-    );
-  }
+  _showResult(context, ref);
 }
 
+Future<void> _deleteUser(
+  BuildContext context,
+  WidgetRef ref,
+  String userId,
+) async {
+  await ref
+      .read(operationsControllerProvider.notifier)
+      .deleteEmployee(userId);
+
+  if (!context.mounted) return;
+
+  _showResult(context, ref);
+}
+
+void _showResult(BuildContext context, WidgetRef ref) {
+  final state = ref.read(operationsControllerProvider);
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        state.hasError
+            ? state.error.toString()
+            : context.t(
+                en: 'Employee operation completed.',
+                ar: 'اكتملت عملية الموظف.',
+              ),
+      ),
+    ),
+  );
+}
+}
