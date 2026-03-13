@@ -1,24 +1,54 @@
-import { createClient, type SupabaseClient, type User } from "jsr:@supabase/supabase-js@2";
+import {
+  createClient,
+  type SupabaseClient,
+  type User,
+} from "npm:@supabase/supabase-js@2";
+
+/* ------------------------------------------------ */
+/* CORS */
+/* ------------------------------------------------ */
+
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+/* ------------------------------------------------ */
+/* HTTP ERROR */
+/* ------------------------------------------------ */
+
 export class HttpError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(public status: number, message: string) {
     super(message);
     this.name = "HttpError";
   }
 }
 
+/* ------------------------------------------------ */
+/* ENV */
+/* ------------------------------------------------ */
+
 export function getRequiredEnv(name: string): string {
-  const value = Deno.env.get(name)?.trim() ?? "";
+  const value =
+    Deno.env.get(name)?.trim() ??
+    Deno.env.get(`FUNCTION_${name}`)?.trim() ??
+    "";
+
   if (!value) {
-    throw new HttpError(500, `Missing required environment variable: ${name}`);
+    throw new HttpError(
+      500,
+      `Missing required environment variable: ${name}`,
+    );
   }
+
   return value;
 }
+
+/* ------------------------------------------------ */
+/* ADMIN CLIENT */
+/* ------------------------------------------------ */
 
 export function createAdminClient(): SupabaseClient {
   return createClient(
@@ -33,27 +63,83 @@ export function createAdminClient(): SupabaseClient {
   );
 }
 
+// Auth client for validating user tokens (uses anon/publishable key; no admin privileges).
+export function createAuthClient(): SupabaseClient {
+  return createClient(
+    getRequiredEnv("SUPABASE_URL"),
+    getRequiredEnv("SUPABASE_PUBLISHABLE_KEY") ||
+      getRequiredEnv("SUPABASE_ANON_KEY"),
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+}
+
+/* ------------------------------------------------ */
+/* AUTHENTICATION */
+/* ------------------------------------------------ */
+
+function extractToken(req: Request): string | null {
+  const authHeader =
+    req.headers.get("Authorization") ??
+    req.headers.get("authorization");
+
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice("Bearer ".length).trim();
+  }
+
+  // Fallback: try to read from cookies (web clients may rely on sb-access-token cookie)
+  const cookie = req.headers.get("Cookie") ?? req.headers.get("cookie");
+  if (cookie) {
+    for (const part of cookie.split(";")) {
+      const [k, v] = part.trim().split("=");
+      if (!v) continue;
+      if (k === "sb-access-token" || k === "access_token") return decodeURIComponent(v);
+      if (k === "supabase-auth-token") {
+        try {
+          const arr = JSON.parse(decodeURIComponent(v));
+          if (Array.isArray(arr) && arr[0]?.access_token) return arr[0].access_token;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function authenticate(
   req: Request,
-  supabase: SupabaseClient,
+  supabase?: SupabaseClient,
 ): Promise<{ user: User }> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new HttpError(401, "Missing or invalid Authorization header.");
-  }
+  const token = extractToken(req);
 
-  const token = authHeader.slice("Bearer ".length).trim();
   if (!token) {
-    throw new HttpError(401, "Missing or invalid Authorization header.");
+    throw new HttpError(401, "Missing Authorization header");
   }
 
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) {
-    throw new HttpError(401, "Invalid JWT.");
+  // Prefer provided client; otherwise fall back to a lightweight auth client
+  const authClient = supabase ?? createAuthClient();
+
+  const {
+    data: { user },
+    error,
+  } = await authClient.auth.getUser(token);
+
+  if (error || !user) {
+    throw new HttpError(401, "Invalid token");
   }
 
-  return { user: data.user };
+  return { user };
 }
+
+/* ------------------------------------------------ */
+/* JSON RESPONSE */
+/* ------------------------------------------------ */
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -65,11 +151,19 @@ export function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/* ------------------------------------------------ */
+/* ERROR HANDLER */
+/* ------------------------------------------------ */
+
 export function handleError(error: unknown, debug = true): Response {
   const status = error instanceof HttpError ? error.status : 500;
-  const message = error instanceof Error
-    ? (debug ? error.message : "Internal Server Error")
-    : "Internal Server Error";
+
+  const message =
+    error instanceof Error
+      ? debug
+        ? error.message
+        : "Internal Server Error"
+      : "Internal Server Error";
 
   console.error("[EDGE FUNCTION ERROR]", error);
 

@@ -618,7 +618,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required EmployeeDraft employee,
   }) async {
     await _ensureCurrentUserProfile();
-    final accessToken = await _freshAccessToken();
+    final token = await _freshAccessToken();
 
     final payload = {
       'action': action,
@@ -637,7 +637,9 @@ class FirebaseBackendDataSource implements BackendDataSource {
         'admin-manage-employee',
         body: payload,
         headers: {
-          'Authorization': 'Bearer $accessToken',
+          'Authorization': 'Bearer $token',
+          // Supabase Edge requires the project anon/public key in apikey header.
+          'apikey': AppConstants.supabaseClientKey,
           'Content-Type': 'application/json',
         },
       );
@@ -667,6 +669,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
         token = refreshed.session?.accessToken ?? token;
       }
     }
+    if (token.isEmpty) throw AppException('auth_required');
     return token;
   }
 

@@ -559,9 +559,15 @@ set search_path = public
 as $$
 declare
   v_user record;
+  v_status public.order_status_enum;
 begin
   select id, company_id, branch_id, name into v_user from public.users where id = auth.uid();
   if v_user.id is null then raise exception 'user_not_found'; end if;
+
+  select status into v_status from public.orders where id = p_order_id;
+  if v_status is null then
+    raise exception 'order_not_found';
+  end if;
 
   update public.orders
     set customer_name = p_customer_name,
@@ -584,7 +590,7 @@ begin
   join public.products p on p.id = (item->>'product_id')::uuid;
 
   insert into public.order_status_history(order_id, status, changed_by, changed_by_name, note)
-  values (p_order_id, 'updated', v_user.id, v_user.name, p_order_notes);
+  values (p_order_id, v_status, v_user.id, v_user.name, p_order_notes);
 end;
 $$;
 grant execute on function public.update_order(uuid,text,text,jsonb,text,text) to authenticated;
@@ -658,20 +664,6 @@ end;
 $$;
 grant execute on function public.transition_order(uuid,text,text) to authenticated;
 
--- Wrapper matching parameter order from runtime checker
-create or replace function public.transition_order(
-  p_next_status text,
-  p_note text,
-  p_order_id uuid
-) returns void
-language sql
-security definer
-set search_path = public
-as $$
-  select public.transition_order(p_order_id, p_next_status, p_note);
-$$;
-grant execute on function public.transition_order(text,text,uuid) to authenticated;
-
 -- Override order status (same as transition but separated for ACL)
 create or replace function public.override_order_status(
   p_order_id uuid,
@@ -685,19 +677,6 @@ as $$
   select public.transition_order(p_order_id, p_next_status, p_note);
 $$;
 grant execute on function public.override_order_status(uuid,text,text) to authenticated;
-
-create or replace function public.override_order_status(
-  p_next_status text,
-  p_note text,
-  p_order_id uuid
-) returns void
-language sql
-security definer
-set search_path = public
-as $$
-  select public.override_order_status(p_order_id, p_next_status, p_note);
-$$;
-grant execute on function public.override_order_status(text,text,uuid) to authenticated;
 
 -- Upsert product
 create or replace function public.upsert_product(
