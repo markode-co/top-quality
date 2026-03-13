@@ -112,6 +112,30 @@ class FirebaseBackendDataSource implements BackendDataSource {
     );
   }
 
+  Future<Map<String, dynamic>?> _loadCompanyFromUsersView(String userId) async {
+    // v_users_with_permissions can return multiple rows per user (one per permission_code),
+    // so we LIMIT 1 to allow maybeSingle().
+    return _supabase
+        .from('v_users_with_permissions')
+        .select('company_id, company_name')
+        .eq('id', userId)
+        .limit(1)
+        .maybeSingle();
+  }
+
+  Future<List<String>> _loadPermissionCodesFromUsersView(String userId) async {
+    final List<dynamic> rows = await _supabase
+        .from('v_users_with_permissions')
+        .select('permission_code')
+        .eq('id', userId);
+    return rows
+        .map((e) => (e as Map)['permission_code']?.toString())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty && c != 'none')
+        .toSet()
+        .toList();
+  }
+
   Future<AppUser> _loadProfile(User user) async {
     // memoize per user to avoid repeated RPC calls during rebuilds
     final cached = _profileCache[user.id];
@@ -137,47 +161,47 @@ class FirebaseBackendDataSource implements BackendDataSource {
     if (rpcRes is Map && rpcRes.isNotEmpty) {
       // If RPC returned but without permissions, enrich from relational tables.
       if ((rpcRes['permissions'] as List?)?.isEmpty ?? true) {
-        final enrichedPerms = await _loadPermissionsFromRelations(
-          userId: user.id,
-          roleId: rpcRes['role_id'],
-        );
-        rpcRes = Map.of(rpcRes)..['permissions'] = enrichedPerms.toList();
+        final enrichedCodes = await _loadPermissionCodesFromUsersView(user.id);
+        rpcRes = Map.of(rpcRes)..['permissions'] = enrichedCodes;
       }
       // Ensure company info exists for UI (employees table / edit dialog).
       if (rpcRes['company_id'] == null || rpcRes['company_name'] == null) {
-        final companyRow = await _supabase
-            .from('users')
-            .select('company_id, company:company_id(name)')
-            .eq('id', user.id)
-            .maybeSingle();
+        final companyRow = await _loadCompanyFromUsersView(user.id);
         rpcRes = Map.of(rpcRes)
           ..['company_id'] = companyRow?['company_id']
-          ..['company_name'] = companyRow?['company']?['name'];
+          ..['company_name'] = companyRow?['company_name'];
       }
       return _mapUserFromProfile(rpcRes, user);
     }
 
-    // Manual relational path: auth.user -> users -> role_permissions/user_permissions
-    final profileRow = await _supabase
-        .from('users')
+    // Manual fallback path: use the public view (no direct table access/embeds).
+    final List<dynamic> viewRows = await _supabase
+        .from('v_users_with_permissions')
         .select(
-          'id, email, name, company_id, created_at, is_active, last_active, role_id, role:role_id(name), company:company_id(name)',
+          'id, email, name, is_active, last_active, company_id, company_name, role_name, permission_code',
         )
-        .eq('id', user.id)
-        .maybeSingle();
+        .eq('id', user.id);
 
-    final roleName =
-        profileRow?['role']?['name']?.toString() ?? 'Order Entry User';
-    final perms = await _loadPermissionsFromRelations(
-      userId: user.id,
-      roleId: profileRow?['role_id']?.toString(),
-    );
+    final List<Map<String, dynamic>> typedRows =
+        viewRows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+    final profileRow = typedRows.isEmpty ? null : typedRows.first;
+    final roleName = profileRow?['role_name']?.toString() ?? 'Order Entry User';
+    final perms =
+        typedRows
+            .map((r) => r['permission_code']?.toString())
+            .whereType<String>()
+            .where((c) => c.isNotEmpty && c != 'none')
+            .map(AppPermission.fromCode)
+            .whereType<AppPermission>()
+            .toSet();
 
     final DateTime? parsedCreatedAt = DateTime.tryParse(
-      profileRow?['created_at']?.toString() ?? user.createdAt,
+      user.createdAt,
     );
-    final DateTime? parsedLastActive = profileRow?['last_active'] != null
-        ? DateTime.tryParse(profileRow!['last_active'].toString())
+    final lastActiveValue = profileRow?['last_active'];
+    final DateTime? parsedLastActive = lastActiveValue != null
+        ? DateTime.tryParse(lastActiveValue.toString())
         : (user.lastSignInAt == null
               ? null
               : DateTime.tryParse(user.lastSignInAt!));
@@ -198,8 +222,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
           (user.email ?? 'User'),
       email: email,
       companyId: profileRow?['company_id']?.toString(),
-      companyName: profileRow?['company']?['name']?.toString(),
-      roleId: profileRow?['role_id']?.toString() ?? 'supabase-default',
+      companyName: profileRow?['company_name']?.toString(),
+      roleId: 'supabase-default',
       role: isAdminOverride ? UserRole.admin : UserRole.fromRoleName(roleName),
       permissions: mergedPerms.isEmpty
           ? _defaultPermissionsForRole(roleName)
@@ -859,35 +883,6 @@ class FirebaseBackendDataSource implements BackendDataSource {
     metadata: row['metadata'] as Map<String, dynamic>?,
     companyId: row['company_id']?.toString(),
   );
-
-  Future<Set<AppPermission>> _loadPermissionsFromRelations({
-    required String userId,
-    String? roleId,
-  }) async {
-    final codes = <String>{};
-    // role -> role_permissions
-    if (roleId != null && roleId.isNotEmpty) {
-      final rolePerms = await _supabase
-          .from('role_permissions')
-          .select('permission_code')
-          .eq('role_id', roleId);
-      for (final row in rolePerms) {
-        final c = row['permission_code']?.toString();
-        if (c != null) codes.add(c);
-      }
-    }
-    // direct user_permissions
-    final userPerms = await _supabase
-        .from('user_permissions')
-        .select('permission_code')
-        .eq('user_id', userId);
-    for (final row in userPerms) {
-      final c = row['permission_code']?.toString();
-      if (c != null) codes.add(c);
-    }
-
-    return codes.map(AppPermission.fromCode).whereType<AppPermission>().toSet();
-  }
 
   Future<String> _resolveEmail(String raw) async {
     final trimmed = raw.trim();
