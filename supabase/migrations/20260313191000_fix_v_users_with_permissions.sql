@@ -13,5 +13,4 @@ from public.users u
 left join public.roles r on r.id = u.role_id
 left join public.user_permissions up on up.user_id = u.id
 left join public.role_permissions rp on rp.role_id = r.id;
-
 grant select on public.v_users_with_permissions to authenticated;

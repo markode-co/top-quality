@@ -26,14 +26,15 @@ class NotificationsPage extends ConsumerWidget {
           );
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(24),
+        return ResponsiveListView(
           children: notifications.map((notification) {
             return Card(
               child: ListTile(
-                title: Text(notification.title),
+                title: Text(notification.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text(
                   '${notification.message}\n${AppFormatters.shortDateTime(notification.createdAt)}',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 isThreeLine: true,
                 leading: Badge(

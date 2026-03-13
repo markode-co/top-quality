@@ -45,8 +45,7 @@ class OrderDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text('طلب رقم ${order.orderNo}')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+      body: ResponsiveListView(
         children: [
           SectionPanel(
             title: context.t(en: 'Overview', ar: 'نظرة عامة'),

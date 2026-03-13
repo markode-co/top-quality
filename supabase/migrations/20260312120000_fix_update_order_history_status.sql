@@ -52,5 +52,4 @@ begin
   values (p_order_id, v_status, v_user.id, v_user.name, p_order_notes);
 end;
 $$;
-
 grant execute on function public.update_order(uuid,text,text,jsonb,text,text) to authenticated;

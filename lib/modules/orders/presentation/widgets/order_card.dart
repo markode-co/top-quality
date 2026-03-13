@@ -37,11 +37,23 @@ class OrderCard extends StatelessWidget {
                         Text(
                           order.customerName,
                           style: Theme.of(context).textTheme.titleMedium,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                    '${_orderLabel(order)} • ${AppFormatters.shortDateTime(order.orderDate)}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              _orderLabel(order),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            Text(
+                              '• ${AppFormatters.shortDateTime(order.orderDate)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -50,21 +62,44 @@ class OrderCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  _Metric(
-                    label: context.t(en: 'Items', ar: 'الأصناف'),
-                    value: '${order.totalQuantity}',
-                  ),
-                  _Metric(
-                    label: context.t(en: 'Revenue', ar: 'الإيراد'),
-                    value: AppFormatters.currency(order.totalRevenue),
-                  ),
-                  _Metric(
-                    label: context.t(en: 'Profit', ar: 'الربح'),
-                    value: AppFormatters.currency(order.profit),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 520;
+                  final metrics = [
+                    _Metric(
+                      label: context.t(en: 'Items', ar: 'الأصناف'),
+                      value: '${order.totalQuantity}',
+                    ),
+                    _Metric(
+                      label: context.t(en: 'Revenue', ar: 'الإيراد'),
+                      value: AppFormatters.currency(order.totalRevenue),
+                      ltr: true,
+                    ),
+                    _Metric(
+                      label: context.t(en: 'Profit', ar: 'الربح'),
+                      value: AppFormatters.currency(order.profit),
+                      ltr: true,
+                    ),
+                  ];
+
+                  if (!narrow) {
+                    return Row(
+                      children: [
+                        for (final m in metrics) Expanded(child: m),
+                      ],
+                    );
+                  }
+
+                  final w = (constraints.maxWidth - 12) / 2;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      for (final m in metrics)
+                        SizedBox(width: w, child: m),
+                    ],
+                  );
+                },
               ),
               if (trailing != null) ...[
                 const SizedBox(height: 16),
@@ -79,22 +114,33 @@ class OrderCard extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
+  const _Metric({required this.label, required this.value, this.ltr = false});
 
   final String label;
   final String value;
+  final bool ltr;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleSmall),
-        ],
-      ),
+    final valueStyle = Theme.of(context).textTheme.titleSmall;
+    final labelStyle = Theme.of(context).textTheme.bodySmall;
+
+    final valueWidget = ltr
+        ? LtrText(value, style: valueStyle, maxLines: 1)
+        : Text(value, style: valueStyle, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: labelStyle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        valueWidget,
+      ],
     );
   }
 }

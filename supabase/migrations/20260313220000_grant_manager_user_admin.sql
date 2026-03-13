@@ -23,7 +23,6 @@ begin
     on conflict do nothing;
   end if;
 end $$;
-
 -- Ensure permissions exist
 insert into public.permissions (code, description)
 values

@@ -179,3 +179,100 @@ class EmptyPlaceholder extends StatelessWidget {
     );
   }
 }
+
+class AppBreakpoints {
+  static bool isCompact(double width) => width < 600;
+  static bool isMedium(double width) => width >= 600 && width < 1024;
+  static bool isWide(double width) => width >= 1024;
+
+  static double contentMaxWidth(double width) {
+    if (width >= 1400) return 1200;
+    return double.infinity;
+  }
+
+  static EdgeInsets pagePadding(double width) {
+    final h = width < 420 ? 12.0 : (width < 900 ? 16.0 : 24.0);
+    final v = width < 420 ? 12.0 : 24.0;
+    return EdgeInsets.fromLTRB(h, v, h, v);
+  }
+}
+
+class ResponsiveListView extends StatelessWidget {
+  const ResponsiveListView({
+    super.key,
+    required this.children,
+    this.maxWidth,
+    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
+  });
+
+  final List<Widget> children;
+  final double? maxWidth;
+  final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final padding = AppBreakpoints.pagePadding(width);
+        final contentMaxWidth = maxWidth ?? AppBreakpoints.contentMaxWidth(width);
+
+        // Subtle typography scaling for very small / very large viewports.
+        final fontFactor = width < 420
+            ? 0.96
+            : (width >= 1400 ? 1.06 : (width >= 1100 ? 1.03 : 1.0));
+        final baseTheme = Theme.of(context);
+        final theme = baseTheme.copyWith(
+          textTheme: baseTheme.textTheme.apply(fontSizeFactor: fontFactor),
+        );
+
+        return Theme(
+          data: theme,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentMaxWidth),
+              child: ListView(
+                padding: padding,
+                keyboardDismissBehavior: keyboardDismissBehavior,
+                children: children,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class LtrText extends StatelessWidget {
+  const LtrText(
+    this.text, {
+    super.key,
+    this.style,
+    this.maxLines = 1,
+    this.overflow = TextOverflow.ellipsis,
+    this.textAlign,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final int maxLines;
+  final TextOverflow overflow;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+        softWrap: false,
+        textAlign: textAlign,
+      ),
+    );
+  }
+}

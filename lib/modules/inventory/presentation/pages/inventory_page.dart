@@ -6,6 +6,7 @@ import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class InventoryPage extends ConsumerStatefulWidget {
   const InventoryPage({super.key});
@@ -48,32 +49,58 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
               product.category.toLowerCase().contains(query);
         }).toList();
 
-        return ListView(
-          padding: const EdgeInsets.all(24),
+        return ResponsiveListView(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: context.t(
-                        en: 'Search by name, SKU, or category',
-                        ar: 'ابحث بالاسم أو SKU أو الفئة',
-                      ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 720;
+                final search = TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: context.t(
+                      en: 'Search by name, SKU, or category',
+                      ar: 'ابحث بالاسم أو SKU أو الفئة',
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                if (canCreate)
-                  FilledButton.icon(
-                    onPressed: () => _showProductDialog(context),
-                    icon: const Icon(Icons.add_box_outlined),
-                    label: Text(context.t(en: 'Add Product', ar: 'إضافة منتج')),
-                  ),
-              ],
+                );
+
+                final addButton = canCreate
+                    ? FilledButton.icon(
+                        onPressed: () => _showProductDialog(context),
+                        icon: const Icon(Icons.add_box_outlined),
+                        label: Text(
+                          context.t(en: 'Add Product', ar: 'إضافة منتج'),
+                        ),
+                      )
+                    : null;
+
+                if (narrow) {
+                  return Column(
+                    children: [
+                      search,
+                      if (addButton != null) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: addButton,
+                        ),
+                      ],
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: search),
+                    if (addButton != null) ...[
+                      const SizedBox(width: 12),
+                      addButton,
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             ...filtered.map(
@@ -465,10 +492,21 @@ class _ProductCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          '${product.sku} • ${product.category}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                          overflow: TextOverflow.ellipsis,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            LtrText(
+                              product.sku,
+                              style: Theme.of(context).textTheme.bodySmall,
+                              maxLines: 1,
+                            ),
+                            Text(
+                              '• ${product.category}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -506,9 +544,20 @@ class _ProductCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '${product.sku} • ${product.category}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    LtrText(
+                      product.sku,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                    ),
+                    Text(
+                      '• ${product.category}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -542,8 +591,8 @@ class _MetricText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxWidth: 180),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -551,6 +600,8 @@ class _MetricText extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
             ).textTheme.titleSmall?.copyWith(color: color),

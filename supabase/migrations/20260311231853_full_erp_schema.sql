@@ -5,7 +5,6 @@
 
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
-
 -- =====================================================
 -- ENUMS
 -- =====================================================
@@ -16,7 +15,6 @@ do $$ begin
     );
   end if;
 end $$;
-
 -- =====================================================
 -- CORE TABLES
 -- =====================================================
@@ -28,7 +26,6 @@ create table if not exists public.companies (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
-
 create table if not exists public.branches (
   id uuid primary key default gen_random_uuid(),
   company_id uuid references public.companies(id) on delete cascade,
@@ -37,27 +34,23 @@ create table if not exists public.branches (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
-
 create table if not exists public.roles (
   id uuid primary key default gen_random_uuid(),
   role_name text unique not null,
   description text,
   created_at timestamptz default now()
 );
-
 create table if not exists public.permissions (
   code text primary key,
   description text,
   created_at timestamptz default now()
 );
-
 create table if not exists public.role_permissions (
   role_id uuid references public.roles(id) on delete cascade,
   permission_code text references public.permissions(code) on delete cascade,
   granted_at timestamptz default now(),
   primary key (role_id, permission_code)
 );
-
 create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   company_id uuid references public.companies(id) on delete set null,
@@ -74,7 +67,6 @@ create table if not exists public.users (
 create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_users_role on public.users(role_id);
 create index if not exists idx_users_company on public.users(company_id);
-
 create table if not exists public.user_permissions (
   user_id uuid references public.users(id) on delete cascade,
   permission_code text references public.permissions(code) on delete cascade,
@@ -82,13 +74,11 @@ create table if not exists public.user_permissions (
   primary key (user_id, permission_code)
 );
 create index if not exists idx_user_permissions_user on public.user_permissions(user_id);
-
 create table if not exists public.user_logins (
   user_id uuid primary key references public.users(id) on delete cascade,
   last_login_at timestamptz,
   login_count integer default 0
 );
-
 -- =====================================================
 -- MASTER DATA
 -- =====================================================
@@ -109,7 +99,6 @@ create table if not exists public.products (
 );
 create index if not exists idx_products_company on public.products(company_id);
 create index if not exists idx_products_sku on public.products(sku);
-
 create table if not exists public.inventory_adjustments (
   id uuid primary key default gen_random_uuid(),
   product_id uuid references public.products(id) on delete cascade,
@@ -120,13 +109,11 @@ create table if not exists public.inventory_adjustments (
   created_at timestamptz default now()
 );
 create index if not exists idx_adj_product on public.inventory_adjustments(product_id);
-
 -- =====================================================
 -- ORDERS
 -- =====================================================
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
-  order_no bigint,
   company_id uuid references public.companies(id) on delete cascade,
   branch_id uuid references public.branches(id) on delete set null,
   customer_name text not null,
@@ -141,8 +128,6 @@ create table if not exists public.orders (
 );
 create index if not exists idx_orders_company on public.orders(company_id);
 create index if not exists idx_orders_status on public.orders(status);
-create unique index if not exists idx_orders_order_no on public.orders(order_no);
-
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid references public.orders(id) on delete cascade,
@@ -154,7 +139,6 @@ create table if not exists public.order_items (
   created_at timestamptz default now()
 );
 create index if not exists idx_order_items_order on public.order_items(order_id);
-
 create table if not exists public.order_status_history (
   id uuid primary key default gen_random_uuid(),
   order_id uuid references public.orders(id) on delete cascade,
@@ -165,7 +149,6 @@ create table if not exists public.order_status_history (
   changed_at timestamptz default now()
 );
 create index if not exists idx_order_history_order on public.order_status_history(order_id);
-
 -- =====================================================
 -- INVOICES
 -- =====================================================
@@ -183,7 +166,6 @@ create table if not exists public.invoices (
   updated_at timestamptz default now()
 );
 create index if not exists idx_invoices_order on public.invoices(order_id);
-
 -- =====================================================
 -- NOTIFICATIONS
 -- =====================================================
@@ -198,7 +180,6 @@ create table if not exists public.notifications (
   created_at timestamptz default now()
 );
 create index if not exists idx_notifications_user on public.notifications(user_id);
-
 -- Inventory projection (REST expects "inventory" resource); expose as view over products
 create or replace view public.inventory as
 select
@@ -216,7 +197,6 @@ select
   p.created_at,
   p.updated_at
 from public.products p;
-
 -- Convenience view for products list with stock
 create or replace view public.v_products as
 select
@@ -224,7 +204,6 @@ select
   p.current_stock as stock,
   p.min_stock_level as min_stock
 from public.products p;
-
 -- =====================================================
 -- FILE REFERENCES (for Storage)
 -- =====================================================
@@ -237,7 +216,6 @@ create table if not exists public.file_refs (
   created_at timestamptz default now()
 );
 create index if not exists idx_file_refs_company on public.file_refs(company_id);
-
 -- =====================================================
 -- ACTIVITY LOGS
 -- =====================================================
@@ -253,7 +231,6 @@ create table if not exists public.activity_logs (
 );
 create index if not exists idx_logs_actor on public.activity_logs(actor_id);
 create index if not exists idx_logs_company on public.activity_logs(company_id);
-
 -- =====================================================
 -- DEFAULT DATA
 -- =====================================================
@@ -265,7 +242,6 @@ values
   ('Order Entry User', 'Creates and manages draft orders'),
   ('Viewer', 'Read Only')
 on conflict (role_name) do nothing;
-
 insert into public.permissions (code, description)
 values
   ('dashboard_view', 'Read dashboard'),
@@ -291,14 +267,12 @@ values
   ('reports_view', 'Read reports'),
   ('activity_logs_view', 'Read activity logs')
 on conflict do nothing;
-
 insert into public.role_permissions (role_id, permission_code)
 select r.id, p.code
 from public.roles r
 cross join public.permissions p
 where r.role_name = 'Admin'
 on conflict do nothing;
-
 -- View: users with permissions flattened
 create or replace view public.v_users_with_permissions as
 select
@@ -312,7 +286,6 @@ left join public.roles r on r.id = u.role_id
 left join public.role_permissions rp on rp.role_id = r.id
 left join public.permissions p on p.code = rp.permission_code;
 grant select on public.v_users_with_permissions to authenticated;
-
 -- =====================================================
 -- FUNCTIONS & TRIGGERS
 -- =====================================================
@@ -328,7 +301,6 @@ begin
   return r;
 end;
 $$;
-
 create or replace function public.is_admin()
 returns boolean
 language plpgsql
@@ -340,7 +312,6 @@ begin
   return public.get_user_role(auth.uid()) = 'Admin';
 end;
 $$;
-
 create or replace function public.record_user_login(p_user_id uuid)
 returns json
 language plpgsql
@@ -367,7 +338,6 @@ begin
 end;
 $$;
 grant execute on function public.record_user_login(uuid) to authenticated;
-
 create or replace function public.write_activity_log(
   p_actor_id uuid,
   p_action text,
@@ -387,7 +357,6 @@ begin
 end;
 $$;
 grant execute on function public.write_activity_log(uuid,text,text,uuid,jsonb) to authenticated;
-
 create or replace function public.ensure_current_user_profile()
 returns json
 language plpgsql
@@ -436,7 +405,6 @@ begin
 end;
 $$;
 grant execute on function public.ensure_current_user_profile() to authenticated;
-
 create or replace function public.get_current_user_profile()
 returns json
 language plpgsql
@@ -484,7 +452,6 @@ begin
 end;
 $$;
 grant execute on function public.get_current_user_profile() to authenticated;
-
 -- Order creation
 create or replace function public.create_order(
   p_customer_name text,
@@ -531,7 +498,6 @@ begin
 end;
 $$;
 grant execute on function public.create_order(text,text,jsonb,text,text) to authenticated;
-
 -- Wrapper to satisfy legacy PostgREST signature without address
 create or replace function public.create_order(
   p_customer_name text,
@@ -546,7 +512,6 @@ as $$
   select public.create_order(p_customer_name, p_customer_phone, p_items, p_order_notes, null);
 $$;
 grant execute on function public.create_order(text,text,jsonb,text) to authenticated;
-
 -- Order update
 create or replace function public.update_order(
   p_order_id uuid,
@@ -561,15 +526,9 @@ set search_path = public
 as $$
 declare
   v_user record;
-  v_status public.order_status_enum;
 begin
   select id, company_id, branch_id, name into v_user from public.users where id = auth.uid();
   if v_user.id is null then raise exception 'user_not_found'; end if;
-
-  select status into v_status from public.orders where id = p_order_id;
-  if v_status is null then
-    raise exception 'order_not_found';
-  end if;
 
   update public.orders
     set customer_name = p_customer_name,
@@ -592,11 +551,10 @@ begin
   join public.products p on p.id = (item->>'product_id')::uuid;
 
   insert into public.order_status_history(order_id, status, changed_by, changed_by_name, note)
-  values (p_order_id, v_status, v_user.id, v_user.name, p_order_notes);
+  values (p_order_id, 'updated', v_user.id, v_user.name, p_order_notes);
 end;
 $$;
 grant execute on function public.update_order(uuid,text,text,jsonb,text,text) to authenticated;
-
 -- Legacy wrapper with order_id last (API generator expectation)
 create or replace function public.update_order(
   p_customer_name text,
@@ -612,7 +570,6 @@ as $$
   select public.update_order(p_order_id, p_customer_name, p_customer_phone, p_items, p_order_notes, null);
 $$;
 grant execute on function public.update_order(text,text,jsonb,uuid,text) to authenticated;
-
 -- Wrapper to satisfy legacy PostgREST signature without address
 create or replace function public.update_order(
   p_order_id uuid,
@@ -628,7 +585,6 @@ as $$
   select public.update_order(p_order_id, p_customer_name, p_customer_phone, p_items, p_order_notes, null);
 $$;
 grant execute on function public.update_order(uuid,text,text,jsonb,text) to authenticated;
-
 -- Delete order
 create or replace function public.delete_order(p_order_id uuid)
 returns void
@@ -640,7 +596,6 @@ begin
 end;
 $$;
 grant execute on function public.delete_order(uuid) to authenticated;
-
 -- Transition order status
 create or replace function public.transition_order(
   p_order_id uuid,
@@ -665,7 +620,19 @@ begin
 end;
 $$;
 grant execute on function public.transition_order(uuid,text,text) to authenticated;
-
+-- Wrapper matching parameter order from runtime checker
+create or replace function public.transition_order(
+  p_next_status text,
+  p_note text,
+  p_order_id uuid
+) returns void
+language sql
+security definer
+set search_path = public
+as $$
+  select public.transition_order(p_order_id, p_next_status, p_note);
+$$;
+grant execute on function public.transition_order(text,text,uuid) to authenticated;
 -- Override order status (same as transition but separated for ACL)
 create or replace function public.override_order_status(
   p_order_id uuid,
@@ -679,7 +646,18 @@ as $$
   select public.transition_order(p_order_id, p_next_status, p_note);
 $$;
 grant execute on function public.override_order_status(uuid,text,text) to authenticated;
-
+create or replace function public.override_order_status(
+  p_next_status text,
+  p_note text,
+  p_order_id uuid
+) returns void
+language sql
+security definer
+set search_path = public
+as $$
+  select public.override_order_status(p_order_id, p_next_status, p_note);
+$$;
+grant execute on function public.override_order_status(text,text,uuid) to authenticated;
 -- Upsert product
 create or replace function public.upsert_product(
   p_product_id uuid,
@@ -723,7 +701,6 @@ begin
 end;
 $$;
 grant execute on function public.upsert_product(uuid,text,text,text,numeric,numeric,int,int) to authenticated;
-
 -- Wrapper matching legacy parameter ordering from runtime checker
 create or replace function public.upsert_product(
   p_category text,
@@ -751,7 +728,6 @@ as $$
   );
 $$;
 grant execute on function public.upsert_product(text,int,text,uuid,numeric,numeric,text,int) to authenticated;
-
 -- Mark notification read
 create or replace function public.mark_notification_read(p_notification_id uuid)
 returns void
@@ -765,7 +741,6 @@ begin
 end;
 $$;
 grant execute on function public.mark_notification_read(uuid) to authenticated;
-
 -- Inventory adjustment
 create or replace function public.adjust_inventory(
   p_product_id uuid,
@@ -794,7 +769,6 @@ begin
 end;
 $$;
 grant execute on function public.adjust_inventory(uuid, integer, text) to authenticated;
-
 -- Auto-grant new permissions to Admin + seeded super admin
 create or replace function public.fn_grant_permission_to_admin()
 returns trigger
@@ -821,12 +795,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_permissions_auto_grant_admin on public.permissions;
 create trigger trg_permissions_auto_grant_admin
 after insert on public.permissions
 for each row execute function public.fn_grant_permission_to_admin();
-
 -- =====================================================
 -- RLS ENABLE + POLICIES
 -- =====================================================
@@ -838,20 +810,17 @@ alter table public.products enable row level security;
 alter table public.notifications enable row level security;
 alter table public.invoices enable row level security;
 alter table public.inventory_adjustments enable row level security;
-
 -- Users: admins manage all, users read self
 drop policy if exists "users_read_own_profile" on public.users;
 create policy "users_read_own_profile"
 on public.users for select
 to authenticated
 using (auth.uid() = id);
-
 create policy "users_admin_all"
 on public.users for all
 to authenticated
 using (public.is_admin())
 with check (public.is_admin());
-
 -- Activity logs
 drop policy if exists "activity_logs_admin_all" on public.activity_logs;
 drop policy if exists "activity_logs_company_view" on public.activity_logs;
@@ -860,7 +829,6 @@ on public.activity_logs for all
 to authenticated
 using (public.is_admin())
 with check (public.is_admin());
-
 create policy "activity_logs_company_view"
 on public.activity_logs for select
 to authenticated
@@ -882,19 +850,16 @@ using (
       )
   )
 );
-
 -- Orders: company scoped
 create policy "orders_company_access"
 on public.orders for select
 to authenticated
 using (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 create policy "orders_company_write"
 on public.orders for all
 to authenticated
 using (public.is_admin() or company_id = (select company_id from public.users where id = auth.uid() limit 1))
 with check (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 -- Order items inherit from parent
 create policy "order_items_company_access"
 on public.order_items for select
@@ -906,7 +871,6 @@ using (
       and o.company_id = (select company_id from public.users where id = auth.uid() limit 1)
   )
 );
-
 create policy "order_items_company_write"
 on public.order_items for all
 to authenticated
@@ -924,55 +888,46 @@ with check (
       and o.company_id = (select company_id from public.users where id = auth.uid() limit 1)
   )
 );
-
 -- Products: company scoped read/write
 create policy "products_company_access"
 on public.products for select
 to authenticated
 using (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 create policy "products_company_write"
 on public.products for all
 to authenticated
 using (public.is_admin() or company_id = (select company_id from public.users where id = auth.uid() limit 1))
 with check (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 -- Inventory adjustments
 create policy "inventory_adj_company_access"
 on public.inventory_adjustments for select
 to authenticated
 using (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 create policy "inventory_adj_company_write"
 on public.inventory_adjustments for all
 to authenticated
 using (public.is_admin() or company_id = (select company_id from public.users where id = auth.uid() limit 1))
 with check (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 -- Invoices
 create policy "invoices_company_access"
 on public.invoices for select
 to authenticated
 using (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 create policy "invoices_company_write"
 on public.invoices for all
 to authenticated
 using (public.is_admin() or company_id = (select company_id from public.users where id = auth.uid() limit 1))
 with check (company_id = (select company_id from public.users where id = auth.uid() limit 1));
-
 -- Notifications: self only
 create policy "notifications_self"
 on public.notifications for select
 to authenticated
 using (user_id = auth.uid());
-
 create policy "notifications_self_write"
 on public.notifications for update
 to authenticated
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
-
 -- =====================================================
 -- ADMIN BOOTSTRAP (idempotent)
 -- =====================================================
@@ -1027,7 +982,6 @@ begin
   on conflict do nothing;
 end;
 $$;
-
 -- =====================================================
 -- FINAL: REFRESH API
 -- =====================================================

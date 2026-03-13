@@ -36,5 +36,4 @@ begin
   on conflict do nothing;
 end;
 $$;
-
 notify pgrst, 'reload schema';

@@ -13,6 +13,7 @@ class UsersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final operationsState = ref.watch(operationsControllerProvider);
     final currentUser = ref.watch(currentUserProvider);
     final canView =
         currentUser?.hasPermission(AppPermission.usersView) ?? false;
@@ -41,14 +42,15 @@ class UsersPage extends ConsumerWidget {
 
     return usersValue.when(
       data: (users) {
-        return ListView(
-          padding: const EdgeInsets.all(24),
+        return ResponsiveListView(
           children: [
             if (canCreate)
               Align(
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
-                  onPressed: () => _openEmployeeDialog(context, ref),
+                  onPressed: operationsState.isLoading
+                      ? null
+                      : () => _openEmployeeDialog(context, ref),
                   icon: const Icon(Icons.person_add_alt_1_outlined),
                   label: Text(
                     context.t(en: 'Create Employee', ar: 'إنشاء موظف'),
@@ -61,6 +63,7 @@ class UsersPage extends ConsumerWidget {
                 user: user,
                 canEdit: canEdit,
                 canDelete: canDelete,
+                isBusy: operationsState.isLoading,
                 onEdit: () => _openEmployeeDialog(context, ref, user: user),
                 onToggleActive: () => _toggleActive(context, ref, user),
                 onDelete: () => _deleteUser(context, ref, user.id),
@@ -91,7 +94,12 @@ class UsersPage extends ConsumerWidget {
   }) async {
     final nameController = TextEditingController(text: user?.name ?? '');
     final emailController = TextEditingController(text: user?.email ?? '');
-    final companyController = TextEditingController();
+    final currentCompanyName = ref.read(currentUserProvider)?.companyName;
+    final derivedCompanyName = (user?.companyName ?? currentCompanyName)?.trim();
+    final companyLocked = derivedCompanyName != null && derivedCompanyName.isNotEmpty;
+    final companyController = TextEditingController(
+      text: derivedCompanyName ?? '',
+    );
     final passwordController = TextEditingController();
     UserRole selectedRole = user?.role ?? UserRole.orderEntry;
     final selectedPermissions = <AppPermission>{...user?.permissions ?? {}};
@@ -135,15 +143,21 @@ class UsersPage extends ConsumerWidget {
                   TextField(
                     controller: companyController,
                     keyboardType: TextInputType.text,
+                    readOnly: companyLocked,
                     decoration: InputDecoration(
                       labelText: context.t(
                         en: 'Company name',
                         ar: 'اسم الشركة',
                       ),
-                      hintText: context.t(
-                        en: 'e.g., Acme Logistics',
-                        ar: 'مثال: شركة النجاح المتحدة',
-                      ),
+                      helperText: companyLocked
+                          ? context.t(
+                              en: 'Company is derived from your account.',
+                              ar: 'اسم الشركة يتم أخذه تلقائيًا من حسابك.',
+                            )
+                          : context.t(
+                              en: 'Optional (can be set later).',
+                              ar: 'اختياري (يمكن ضبطه لاحقًا).',
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -257,23 +271,41 @@ class UsersPage extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    _showResult(context, ref);
+
+    ref.invalidate(usersProvider);
+
+    _showResult(
+      context,
+      ref,
+      successMessage: user == null
+          ? context.t(en: 'Employee added.', ar: 'تمت إضافة الموظف.')
+          : context.t(en: 'Employee updated.', ar: 'تم تعديل الموظف.'),
+    );
   }
 Future<void> _toggleActive(
   BuildContext context,
   WidgetRef ref,
   AppUser user,
 ) async {
+  final nextActive = !user.isActive;
   await ref
       .read(operationsControllerProvider.notifier)
       .deactivateEmployee(
         employeeId: user.id,
-        isActive: !user.isActive,
+        isActive: nextActive,
       );
 
   if (!context.mounted) return;
 
-  _showResult(context, ref);
+  ref.invalidate(usersProvider);
+
+  _showResult(
+    context,
+    ref,
+    successMessage: nextActive
+        ? context.t(en: 'Employee activated.', ar: 'تم تنشيط الموظف.')
+        : context.t(en: 'Employee deactivated.', ar: 'تم تعطيل الموظف.'),
+  );
 }
 
 Future<void> _deleteUser(
@@ -287,21 +319,26 @@ Future<void> _deleteUser(
 
   if (!context.mounted) return;
 
-  _showResult(context, ref);
+  ref.invalidate(usersProvider);
+
+  _showResult(
+    context,
+    ref,
+    successMessage: context.t(en: 'Employee deleted.', ar: 'تم حذف الموظف.'),
+  );
 }
 
-void _showResult(BuildContext context, WidgetRef ref) {
+void _showResult(
+  BuildContext context,
+  WidgetRef ref, {
+  required String successMessage,
+}) {
   final state = ref.read(operationsControllerProvider);
 
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
-        state.hasError
-            ? state.error.toString()
-            : context.t(
-                en: 'Employee operation completed.',
-                ar: 'اكتملت عملية الموظف.',
-              ),
+        state.hasError ? state.error.toString() : successMessage,
       ),
     ),
   );
@@ -313,6 +350,7 @@ class _UserCard extends StatelessWidget {
     required this.user,
     required this.canEdit,
     required this.canDelete,
+    required this.isBusy,
     required this.onEdit,
     required this.onToggleActive,
     required this.onDelete,
@@ -321,24 +359,24 @@ class _UserCard extends StatelessWidget {
   final AppUser user;
   final bool canEdit;
   final bool canDelete;
+  final bool isBusy;
   final VoidCallback onEdit;
   final VoidCallback onToggleActive;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final permissionsLabel =
-        user.permissions.map((item) => item.code).join(', ');
+    final permissions = user.permissions.map((p) => p.code).toList()..sort();
     final actions = <Widget>[
       if (canEdit)
         IconButton(
-          onPressed: onEdit,
+          onPressed: isBusy ? null : onEdit,
           icon: const Icon(Icons.edit_outlined),
           tooltip: context.t(en: 'Edit employee', ar: 'تعديل الموظف'),
         ),
       if (canEdit)
         IconButton(
-          onPressed: onToggleActive,
+          onPressed: isBusy ? null : onToggleActive,
           icon: Icon(
             user.isActive
                 ? Icons.person_off_outlined
@@ -350,7 +388,7 @@ class _UserCard extends StatelessWidget {
         ),
       if (canDelete)
         IconButton(
-          onPressed: onDelete,
+          onPressed: isBusy ? null : onDelete,
           icon: const Icon(Icons.delete_outline),
           tooltip: context.t(en: 'Delete employee', ar: 'حذف الموظف'),
         ),
@@ -361,7 +399,7 @@ class _UserCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 680;
+            final isWide = constraints.maxWidth >= 740;
             final info = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -371,10 +409,73 @@ class _UserCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    LtrText(
+                      user.email,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                    ),
+                    if ((user.companyName ?? '').trim().isNotEmpty)
+                      Text(
+                        '• ${user.companyName}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    Text(
+                      '${context.roleLabel(user.role)} • ${user.isActive ? context.t(en: 'Active', ar: 'نشط') : context.t(en: 'Inactive', ar: 'غير نشط')}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
+            );
+
+            final maxPerms = constraints.maxWidth >= 520 ? 10 : 6;
+            final shown = permissions.take(maxPerms).toList();
+            final more = permissions.length - shown.length;
+
+            final permissionsWidget = Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
                 Text(
-                  '${user.email}\n${context.roleLabel(user.role)} • ${user.isActive ? context.t(en: 'Active', ar: 'نشط') : context.t(en: 'Inactive', ar: 'غير نشط')}',
+                  '${context.t(en: 'Permissions', ar: 'الصلاحيات')}:',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (shown.isEmpty)
+                  Text(
+                    context.t(en: 'None', ar: 'لا يوجد'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else
+                  ...shown.map(
+                    (code) => Tooltip(
+                      message: code,
+                      child: Chip(
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        label: LtrText(
+                          code,
+                          maxLines: 1,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (more > 0)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    label: Text(
+                      context.t(en: '+$more more', ar: '+$more أخرى'),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
               ],
             );
 
@@ -384,12 +485,12 @@ class _UserCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 260),
-                  child: Text(
-                    '${context.t(en: 'Permissions', ar: 'الصلاحيات')}: $permissionsLabel',
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth >= 740
+                        ? 560
+                        : constraints.maxWidth,
                   ),
+                  child: permissionsWidget,
                 ),
                 Text(
                   user.lastActive == null

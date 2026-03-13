@@ -48,6 +48,7 @@ interface RequestBody {
 interface CallerContext {
   id: string;
   email?: string;
+  name?: string;
   companyId: string;
   branchId: string | null;
   roleId?: string;
@@ -84,16 +85,44 @@ async function logActivity(
   metadata?: Record<string, unknown>,
 ) {
   try {
+    const meta = {
+      ...(metadata ?? {}),
+      // Denormalize actor identity into metadata so the activity logs view doesn't need to join users.
+      actor_name: caller.name ?? null,
+      actor_email: caller.email ?? null,
+    };
     await (admin.from("activity_logs") as any).insert({
       actor_id: caller.id,
       action,
       entity_type: "employee",
       entity_id: employeeId ?? null,
-      metadata: metadata ?? {},
+      metadata: meta,
       company_id: caller.companyId,
     });
   } catch (e) {
     console.error("logActivity failed", e);
+  }
+}
+
+async function notifyCompany(
+  admin: SupabaseClient,
+  caller: CallerContext,
+  title: string,
+  message: string,
+  type: string,
+  referenceId?: string,
+) {
+  try {
+    await (admin as any).rpc("notify_company_users", {
+      p_company_id: caller.companyId,
+      p_title: title,
+      p_message: message,
+      p_type: type,
+      p_reference_id: referenceId ?? null,
+    });
+  } catch (e) {
+    // Non-blocking: activity logs are the source of truth for auditing.
+    console.error("notifyCompany failed", e);
   }
 }
 
@@ -244,7 +273,18 @@ async function createEmployee(
   await logActivity(admin, caller, "admin-manage-employee", userId, {
     action: "create",
     role: role.role_name,
+    employee_name: name,
+    employee_email: email,
   });
+
+  await notifyCompany(
+    admin,
+    caller,
+    "تم إضافة موظف",
+    `${name} (${email})`,
+    "workflow",
+    userId,
+  );
 
   return jsonResponse({ status: "ok", employeeId: userId });
 }
@@ -281,7 +321,18 @@ async function updateEmployee(
   await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
     action: "update",
     role: role?.role_name,
+    employee_name: body.name,
+    employee_email: body.email,
   });
+
+  await notifyCompany(
+    admin,
+    caller,
+    "تم تعديل موظف",
+    `${body.name ?? body.employeeId} (${body.email ?? ""})`.trim(),
+    "workflow",
+    body.employeeId,
+  );
 
   return jsonResponse({ status: "ok" });
 }
@@ -295,6 +346,11 @@ async function deactivateEmployee(
 ) {
   if (!body.employeeId) throw new HttpError(400, "employeeId missing");
 
+  const { data: emp } = await (admin.from("users") as any)
+    .select("name,email")
+    .eq("id", body.employeeId)
+    .maybeSingle();
+
   const { error } = await (admin.from("users") as any)
     .update({ is_active: body.isActive ?? false })
     .eq("id", body.employeeId);
@@ -304,6 +360,15 @@ async function deactivateEmployee(
   await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
     action: body.isActive ? "activate" : "deactivate",
   });
+
+  await notifyCompany(
+    admin,
+    caller,
+    body.isActive ? "تم تنشيط موظف" : "تم تعطيل موظف",
+    `${emp?.name ?? body.employeeId} (${emp?.email ?? ""})`.trim(),
+    "workflow",
+    body.employeeId,
+  );
 
   return jsonResponse({ status: "ok" });
 }
@@ -317,12 +382,26 @@ async function deleteEmployee(
 ) {
   if (!body.employeeId) throw new HttpError(400, "employeeId missing");
 
+  const { data: emp } = await (admin.from("users") as any)
+    .select("name,email")
+    .eq("id", body.employeeId)
+    .maybeSingle();
+
   await (admin.from("users") as any).delete().eq("id", body.employeeId);
   await admin.auth.admin.deleteUser(body.employeeId);
 
   await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
     action: "delete",
   });
+
+  await notifyCompany(
+    admin,
+    caller,
+    "تم حذف موظف",
+    `${emp?.name ?? body.employeeId} (${emp?.email ?? ""})`.trim(),
+    "workflow",
+    body.employeeId,
+  );
 
   return jsonResponse({ status: "ok" });
 }
@@ -369,6 +448,7 @@ async function getCallerContext(
       company_id,
       branch_id,
       role_id,
+      name,
       is_active,
       roles(id, role_name)
     `)
@@ -396,6 +476,7 @@ async function getCallerContext(
   return {
     id: user.id,
     email: user.email,
+    name: data.name ?? undefined,
     companyId: data.company_id,
     branchId: data.branch_id,
     roleId: data.role_id,

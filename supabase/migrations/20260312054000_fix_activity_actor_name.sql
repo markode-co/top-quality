@@ -1,6 +1,5 @@
 -- Recreate v_activity_logs to fallback to actor_id when name/email are missing
 drop view if exists public.v_activity_logs;
-
 create view public.v_activity_logs as
 select
   l.id,
@@ -15,5 +14,4 @@ select
   l.created_at
 from public.activity_logs l
 left join public.users u on u.id = l.actor_id;
-
 grant select on public.v_activity_logs to authenticated;

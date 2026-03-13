@@ -22,11 +22,9 @@ using (
     )
   )
 );
-
 -- Ensure permission code exists (idempotent)
 insert into public.permissions (code, description)
 values ('activity_logs_view', 'Read activity logs')
 on conflict do nothing;
-
 -- Grant select on view (idempotent)
 grant select on public.v_activity_logs to authenticated;

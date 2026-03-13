@@ -2,13 +2,11 @@
 insert into public.companies (id, name)
 select gen_random_uuid(), 'Default Company'
 where not exists (select 1 from public.companies limit 1);
-
 -- Ensure a default branch for the first/only company
 insert into public.branches (id, company_id, name)
 select gen_random_uuid(), c.id, 'Main Branch'
 from public.companies c
 where not exists (select 1 from public.branches limit 1);
-
 -- Assign company/branch to admin user if missing
 with tgt as (
   select u.id,

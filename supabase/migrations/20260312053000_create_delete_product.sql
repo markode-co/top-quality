@@ -14,5 +14,4 @@ begin
     and company_id = v_company;
 end;
 $$;
-
 grant execute on function public.delete_product(uuid) to authenticated;

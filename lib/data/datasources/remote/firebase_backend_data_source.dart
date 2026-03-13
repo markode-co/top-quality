@@ -19,15 +19,23 @@ class _UserAcc {
     required this.id,
     required this.name,
     required this.email,
+    required this.companyId,
+    required this.companyName,
     required this.roleName,
     required this.isHardAdmin,
+    required this.isActive,
+    required this.lastActive,
   });
 
   final String id;
   final String name;
   final String email;
+  final String? companyId;
+  final String? companyName;
   final String roleName;
   final bool isHardAdmin;
+  final bool isActive;
+  final DateTime? lastActive;
   final Set<String> permissionCodes = {};
 
   AppUser toAppUser(Set<AppPermission> Function(String) fallback) {
@@ -43,12 +51,14 @@ class _UserAcc {
       id: id,
       name: name,
       email: email,
+      companyId: companyId,
+      companyName: companyName,
       roleId: '',
       role: isHardAdmin ? UserRole.admin : UserRole.fromRoleName(roleName),
       permissions: perms,
       createdAt: DateTime.now(),
-      isActive: true,
-      lastActive: null,
+      isActive: isActive,
+      lastActive: lastActive,
     );
   }
 }
@@ -66,6 +76,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
     final permList = (res['permissions'] as List?)?.cast<String>() ?? [];
     final roleName = (res['role_name'] ?? '').toString();
     final email = res['email']?.toString() ?? (fallback.email ?? '');
+    final companyId = res['company_id']?.toString();
+    final companyName = res['company_name']?.toString();
     final resolvedPerms = permList
         .map(AppPermission.fromCode)
         .whereType<AppPermission>()
@@ -82,6 +94,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
           fallback.userMetadata?['name']?.toString() ??
           (fallback.email ?? 'User'),
       email: email,
+      companyId: companyId,
+      companyName: companyName,
       roleId: res['role_id']?.toString() ?? 'supabase-default',
       role: isAdminOverride ? UserRole.admin : UserRole.fromRoleName(roleName),
       permissions: isAdminOverride ? AppPermission.values.toSet() : perms,
@@ -129,6 +143,17 @@ class FirebaseBackendDataSource implements BackendDataSource {
         );
         rpcRes = Map.of(rpcRes)..['permissions'] = enrichedPerms.toList();
       }
+      // Ensure company info exists for UI (employees table / edit dialog).
+      if (rpcRes['company_id'] == null || rpcRes['company_name'] == null) {
+        final companyRow = await _supabase
+            .from('users')
+            .select('company_id, company:company_id(name)')
+            .eq('id', user.id)
+            .maybeSingle();
+        rpcRes = Map.of(rpcRes)
+          ..['company_id'] = companyRow?['company_id']
+          ..['company_name'] = companyRow?['company']?['name'];
+      }
       return _mapUserFromProfile(rpcRes, user);
     }
 
@@ -136,7 +161,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
     final profileRow = await _supabase
         .from('users')
         .select(
-          'id, email, name, role_id, created_at, is_active, last_active, role:role_id(name)',
+          'id, email, name, company_id, created_at, is_active, last_active, role_id, role:role_id(name), company:company_id(name)',
         )
         .eq('id', user.id)
         .maybeSingle();
@@ -172,6 +197,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
           user.userMetadata?['name']?.toString() ??
           (user.email ?? 'User'),
       email: email,
+      companyId: profileRow?['company_id']?.toString(),
+      companyName: profileRow?['company']?['name']?.toString(),
       roleId: profileRow?['role_id']?.toString() ?? 'supabase-default',
       role: isAdminOverride ? UserRole.admin : UserRole.fromRoleName(roleName),
       permissions: mergedPerms.isEmpty
@@ -302,18 +329,24 @@ class FirebaseBackendDataSource implements BackendDataSource {
         .stream(primaryKey: ['id', 'permission_code']);
 
     return stream.map((rows) {
-      final Map<String, _UserAcc> acc = {};
+        final Map<String, _UserAcc> acc = {};
       for (final row in rows) {
         final id = row['id'].toString();
         final entry = acc.putIfAbsent(id, () {
           final roleName = (row['role_name'] ?? '').toString();
           final email = row['email']?.toString() ?? '';
+          final companyId = row['company_id']?.toString();
+          final companyName = row['company_name']?.toString();
           return _UserAcc(
             id: id,
             name: row['name']?.toString() ?? 'User',
             email: email,
+            companyId: companyId,
+            companyName: companyName,
             roleName: roleName,
             isHardAdmin: _isHardAdmin(email),
+            isActive: row['is_active'] as bool? ?? true,
+            lastActive: DateTime.tryParse(row['last_active']?.toString() ?? ''),
           );
         });
         final permCode = row['permission_code']?.toString();
@@ -461,35 +494,47 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   @override
   Stream<List<EmployeeReport>> watchEmployeeReports() =>
-      _supabase.from('orders').stream(primaryKey: ['id']).map((rows) {
-        final Map<String, ReportAcc> acc = {};
-        for (final r in rows) {
-          final createdBy = r['created_by']?.toString() ?? 'unknown';
-          final name = r['created_by_name']?.toString() ?? 'Unknown';
-          final status = (r['status']?.toString() ?? 'entered').toLowerCase();
-          final entry = acc.putIfAbsent(
-            createdBy,
-            () => ReportAcc(id: createdBy, name: name),
-          );
-          switch (status) {
-            case 'entered':
-              entry.entered++;
-              break;
-            case 'checked':
-              entry.reviewed++;
-              break;
-            case 'shipped':
-              entry.shipped++;
-              break;
-            case 'returned':
-              entry.returned++;
-              break;
-            default:
-              break;
-          }
-        }
-        return acc.values.map((e) => e.toReport()).toList();
-      });
+      _supabase
+          .from('order_status_history')
+          .stream(primaryKey: ['id'])
+          .map((rows) {
+            final Map<String, ReportAcc> acc = {};
+            for (final r in rows) {
+              final userId = r['changed_by']?.toString();
+              final orderId = r['order_id']?.toString();
+              if (userId == null || userId.isEmpty) continue;
+              if (orderId == null || orderId.isEmpty) continue;
+              final name = r['changed_by_name']?.toString() ?? 'Unknown';
+              final status = (r['status']?.toString() ?? '').toLowerCase();
+              final entry = acc.putIfAbsent(
+                userId,
+                () => ReportAcc(id: userId, name: name),
+              );
+              switch (status) {
+                case 'entered':
+                  entry.enteredOrderIds.add(orderId);
+                  break;
+                case 'checked':
+                case 'approved':
+                  entry.reviewedOrderIds.add(orderId);
+                  break;
+                case 'shipped':
+                  entry.shippedOrderIds.add(orderId);
+                  break;
+                case 'completed':
+                  entry.completedOrderIds.add(orderId);
+                  break;
+                case 'returned':
+                  entry.returnedOrderIds.add(orderId);
+                  break;
+                default:
+                  break;
+              }
+            }
+            final list = acc.values.map((e) => e.toReport()).toList();
+            list.sort((a, b) => a.userName.compareTo(b.userName));
+            return list;
+          });
 
   // ----- Orders -----
   @override

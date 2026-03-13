@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
-import 'package:top_quality/domain/entities/app_user.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
@@ -16,7 +16,7 @@ class ActivityLogsPage extends ConsumerStatefulWidget {
 
 class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
   final _searchController = TextEditingController();
-  String? _entityFilter;
+  _LogCategory _category = _LogCategory.all;
 
   @override
   void dispose() {
@@ -27,8 +27,6 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
   @override
   Widget build(BuildContext context) {
     final logsValue = ref.watch(activityLogsProvider);
-    final users = ref.watch(usersProvider).valueOrNull ?? const <AppUser>[];
-    final userById = {for (final user in users) user.id: user};
     return logsValue.when(
       data: (logs) {
         if (logs.isEmpty) {
@@ -43,49 +41,48 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
         }
 
         final filtered = _applyFilters(logs);
-        final entityTypes = {for (final log in logs) log.entityType}.toList()
-          ..sort();
 
-        return ListView(
-          padding: const EdgeInsets.all(24),
+        return ResponsiveListView(
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 360,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: context.t(
-                        en: 'Search by user, action, or entity',
-                        ar: 'ابحث باسم المستخدم أو الإجراء أو الكيان',
-                      ),
-                      prefixIcon: const Icon(Icons.search),
-                    ),
-                  ),
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 720;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ChoiceChip(
-                      label: Text(context.t(en: 'All types', ar: 'كل الأنواع')),
-                      selected: _entityFilter == null,
-                      onSelected: (_) => setState(() => _entityFilter = null),
-                    ),
-                    for (final type in entityTypes)
-                      ChoiceChip(
-                        label: Text(type),
-                        selected: _entityFilter == type,
-                        onSelected: (_) => setState(() => _entityFilter = type),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: isNarrow ? constraints.maxWidth : 420,
+                        maxWidth: 560,
                       ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: context.t(
+                            en: 'Search orders, products, employees...',
+                            ar: 'ابحث: طلبات، منتجات، موظفين...',
+                          ),
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchController.text.trim().isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: context.t(en: 'Clear', ar: 'مسح'),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                  icon: const Icon(Icons.close),
+                                ),
+                        ),
+                      ),
+                    ),
+                    _categoryChips(context),
                   ],
-                ),
-              ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             if (filtered.isEmpty)
@@ -101,39 +98,66 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                 icon: Icons.search_off_outlined,
               )
             else
-              Card(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columnSpacing: 28,
-                    headingRowHeight: 44,
-                    dataRowMinHeight: 56,
-                    dataRowMaxHeight: 96,
-                    columns: [
-                      DataColumn(
-                        label: Text(context.t(en: 'User', ar: 'المستخدم')),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final showTable = constraints.maxWidth >= 980;
+                  if (!showTable) {
+                    return Column(
+                      children: [
+                        for (final log in filtered)
+                          Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.history),
+                              title: Text(_actionLabel(context, log.action)),
+                              subtitle: Text(
+                                '${log.actorName}\n${_entitySummary(context, log)}',
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Text(
+                                AppFormatters.shortDateTime(log.createdAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+
+                  return Card(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columnSpacing: 28,
+                        headingRowHeight: 44,
+                        dataRowMinHeight: 56,
+                        dataRowMaxHeight: 96,
+                        columns: [
+                          DataColumn(
+                            label: Text(context.t(en: 'User', ar: 'المستخدم')),
+                          ),
+                          DataColumn(
+                            label: Text(context.t(en: 'Email', ar: 'الايميل')),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              context.t(en: 'Task', ar: 'المهام المنفذة'),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(context.t(en: 'Date', ar: 'التاريخ')),
+                          ),
+                          DataColumn(
+                            label: Text(context.t(en: 'Activity', ar: 'النشاطات')),
+                          ),
+                        ],
+                        rows: [
+                          for (final log in filtered) _activityRow(context, log),
+                        ],
                       ),
-                      DataColumn(
-                        label: Text(context.t(en: 'Email', ar: 'الايميل')),
-                      ),
-                      DataColumn(
-                        label: Text(
-                          context.t(en: 'Task', ar: 'المهام المنفذة'),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Text(context.t(en: 'Date', ar: 'التاريخ')),
-                      ),
-                      DataColumn(
-                        label: Text(context.t(en: 'Activity', ar: 'النشاطات')),
-                      ),
-                    ],
-                    rows: [
-                      for (final log in filtered)
-                        _activityRow(context, log, userById[log.actorId]),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
           ],
         );
@@ -143,55 +167,126 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
     );
   }
 
+  Widget _categoryChips(BuildContext context) {
+    final items = <_CategoryChip>[
+      _CategoryChip(
+        category: _LogCategory.all,
+        icon: Icons.all_inbox_outlined,
+        label: context.t(en: 'All', ar: 'الكل'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.orders,
+        icon: Icons.receipt_long_outlined,
+        label: context.t(en: 'Orders', ar: 'الطلبات'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.products,
+        icon: Icons.inventory_2_outlined,
+        label: context.t(en: 'Products', ar: 'المنتجات'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.inventory,
+        icon: Icons.warehouse_outlined,
+        label: context.t(en: 'Inventory', ar: 'المخزون'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.employees,
+        icon: Icons.badge_outlined,
+        label: context.t(en: 'Employees', ar: 'الموظفون'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.users,
+        icon: Icons.person_outline,
+        label: context.t(en: 'Users', ar: 'المستخدمون'),
+      ),
+      _CategoryChip(
+        category: _LogCategory.general,
+        icon: Icons.bolt_outlined,
+        label: context.t(en: 'General', ar: 'عام'),
+      ),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final item in items)
+          ChoiceChip(
+            avatar: Icon(item.icon, size: 18),
+            label: Text(item.label),
+            selected: _category == item.category,
+            onSelected: (_) => setState(() => _category = item.category),
+          ),
+      ],
+    );
+  }
+
   List<ActivityLog> _applyFilters(List<ActivityLog> logs) {
     final query = _searchController.text.trim().toLowerCase();
     return logs.where((log) {
-      final matchesEntity =
-          _entityFilter == null || log.entityType == _entityFilter;
-      final matchesQuery =
-          query.isEmpty ||
-          log.actorName.toLowerCase().contains(query) ||
-          (log.actorId.toLowerCase().contains(query)) ||
-          (log.actorEmail?.toLowerCase().contains(query) ?? false) ||
-          log.action.toLowerCase().contains(query) ||
-          log.entityType.toLowerCase().contains(query) ||
-          (log.entityId?.toLowerCase().contains(query) ?? false);
-      return matchesEntity && matchesQuery;
+      final matchesCategory = switch (_category) {
+        _LogCategory.all => true,
+        _LogCategory.orders => log.entityType.toLowerCase() == 'order',
+        _LogCategory.products => log.entityType.toLowerCase() == 'product',
+        _LogCategory.inventory => log.entityType.toLowerCase() == 'inventory',
+        _LogCategory.employees => log.entityType.toLowerCase() == 'employee',
+        _LogCategory.users => log.entityType.toLowerCase() == 'user',
+        _LogCategory.general => log.entityType.trim().isEmpty,
+      };
+
+      if (!matchesCategory) return false;
+      if (query.isEmpty) return true;
+
+      final haystack = _searchHaystack(context, log);
+      return haystack.contains(query);
     }).toList();
+  }
+
+  String _searchHaystack(BuildContext context, ActivityLog log) {
+    final meta = log.metadata ?? const <String, dynamic>{};
+    final metaText = meta.entries
+        .map((e) => '${e.key}:${e.value}')
+        .join(' ')
+        .toLowerCase();
+
+    return [
+      log.actorName,
+      log.actorId,
+      log.actorEmail ?? '',
+      log.action,
+      _actionLabel(context, log.action),
+      log.entityType,
+      log.entityId ?? '',
+      _entitySummary(context, log),
+      metaText,
+    ].join(' ').toLowerCase();
   }
 }
 
-DataRow _activityRow(BuildContext context, ActivityLog log, AppUser? user) {
-  final name = log.actorName.trim().isNotEmpty
-      ? log.actorName.trim()
-      : (user?.name.trim().isNotEmpty ?? false)
-      ? user!.name.trim()
-      : '';
-  final email = log.actorEmail?.trim().isNotEmpty ?? false
-      ? log.actorEmail!.trim()
-      : (user?.email.trim().isNotEmpty ?? false)
-      ? user!.email.trim()
-      : '';
+DataRow _activityRow(BuildContext context, ActivityLog log) {
+  final name = log.actorName.trim();
+  final email = (log.actorEmail ?? '').trim();
   final displayName = name.isNotEmpty
       ? name
-      : (email.isNotEmpty
-            ? email
-            : (log.actorId.isNotEmpty ? log.actorId : '-'));
-  final displayEmail = email.isNotEmpty
-      ? email
-      : (log.actorId.isNotEmpty ? log.actorId : '-');
+      : (email.isNotEmpty ? email : (log.actorId.isNotEmpty ? log.actorId : '-'));
+  final displayEmail =
+      email.isNotEmpty ? email : (log.actorId.isNotEmpty ? log.actorId : '-');
   final task = _actionLabel(context, log.action);
-  final activityBase = log.entityType.isNotEmpty
-      ? log.entityType
-      : context.t(en: 'General', ar: 'عام');
-  final activity = (log.entityId?.isNotEmpty ?? false)
-      ? '$activityBase - ${log.entityId}'
-      : activityBase;
+  final activity = _entitySummary(context, log);
 
   return DataRow(
     cells: [
       DataCell(_cellText(context, displayName, maxWidth: 180)),
-      DataCell(_cellText(context, displayEmail, maxWidth: 220)),
+      DataCell(
+        SizedBox(
+          width: 220,
+          child: LtrText(
+            displayEmail,
+            style: Theme.of(context).textTheme.bodyMedium,
+            maxLines: 1,
+          ),
+        ),
+      ),
       DataCell(_cellText(context, task, maxWidth: 200)),
       DataCell(
         _cellText(
@@ -204,6 +299,96 @@ DataRow _activityRow(BuildContext context, ActivityLog log, AppUser? user) {
       DataCell(_cellText(context, activity, maxWidth: 260)),
     ],
   );
+}
+
+String _entitySummary(BuildContext context, ActivityLog log) {
+  final type = log.entityType.trim().toLowerCase();
+  final id = (log.entityId ?? '').trim();
+  final meta = log.metadata ?? const <String, dynamic>{};
+
+  String typeLabel() {
+    switch (type) {
+      case 'order':
+        return context.t(en: 'Order', ar: 'طلب');
+      case 'product':
+        return context.t(en: 'Product', ar: 'منتج');
+      case 'inventory':
+        return context.t(en: 'Inventory', ar: 'مخزون');
+      case 'employee':
+        return context.t(en: 'Employee', ar: 'موظف');
+      case 'user':
+        return context.t(en: 'User', ar: 'مستخدم');
+      default:
+        return type.isEmpty ? context.t(en: 'General', ar: 'عام') : type;
+    }
+  }
+
+  String shortId(String value) {
+    final v = value.trim();
+    if (v.isEmpty) return '';
+    if (v.length <= 10) return v;
+    return '${v.substring(0, 6)}...${v.substring(v.length - 4)}';
+  }
+
+  String? metaString(String key) {
+    final v = meta[key];
+    if (v == null) return null;
+    final s = v.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  String statusLabel(String raw) {
+    final value = raw.trim().toLowerCase();
+    final status = OrderStatus.values.firstWhere(
+      (s) => s.name == value,
+      orElse: () => OrderStatus.entered,
+    );
+    return context.orderStatusLabel(status);
+  }
+
+  if (type == 'order') {
+    final customer = metaString('customer_name');
+    final from = metaString('from');
+    final to = metaString('to');
+    if (customer != null) return '${typeLabel()} ($customer)';
+    if (from != null && to != null) {
+      return '${typeLabel()} (${statusLabel(from)} -> ${statusLabel(to)})';
+    }
+    return id.isNotEmpty ? '${typeLabel()} (${shortId(id)})' : typeLabel();
+  }
+
+  if (type == 'product') {
+    final sku = metaString('sku');
+    final name = metaString('name');
+    if (sku != null && name != null) return '${typeLabel()} ($sku - $name)';
+    if (sku != null) return '${typeLabel()} ($sku)';
+    if (name != null) return '${typeLabel()} ($name)';
+    return id.isNotEmpty ? '${typeLabel()} (${shortId(id)})' : typeLabel();
+  }
+
+  if (type == 'inventory') {
+    final delta = meta['delta'];
+    final reason = metaString('reason');
+    final deltaText = (delta?.toString())?.trim();
+    if (deltaText != null && deltaText.isNotEmpty && reason != null) {
+      return '${typeLabel()} ($deltaText - $reason)';
+    }
+    if (deltaText != null && deltaText.isNotEmpty) {
+      return '${typeLabel()} ($deltaText)';
+    }
+    if (reason != null) return '${typeLabel()} ($reason)';
+    return id.isNotEmpty ? '${typeLabel()} (${shortId(id)})' : typeLabel();
+  }
+
+  if (type == 'employee') {
+    final empName = metaString('employee_name') ?? metaString('name');
+    final empEmail = metaString('employee_email') ?? metaString('email');
+    if (empName != null) return '${typeLabel()} ($empName)';
+    if (empEmail != null) return '${typeLabel()} ($empEmail)';
+    return id.isNotEmpty ? '${typeLabel()} (${shortId(id)})' : typeLabel();
+  }
+
+  return id.isNotEmpty ? '${typeLabel()} (${shortId(id)})' : typeLabel();
 }
 
 Widget _cellText(
@@ -254,4 +439,18 @@ String _actionLabel(BuildContext context, String action) {
     'adjust_inventory': 'تعديل المخزون',
   };
   return context.t(en: mapEn[action] ?? action, ar: mapAr[action] ?? action);
+}
+
+enum _LogCategory { all, orders, products, inventory, employees, users, general }
+
+class _CategoryChip {
+  const _CategoryChip({
+    required this.category,
+    required this.label,
+    required this.icon,
+  });
+
+  final _LogCategory category;
+  final String label;
+  final IconData icon;
 }

@@ -17,8 +17,7 @@ class DashboardPage extends ConsumerWidget {
     final dashboardValue = ref.watch(dashboardProvider);
 
     return dashboardValue.when(
-      data: (snapshot) => ListView(
-        padding: const EdgeInsets.all(24),
+      data: (snapshot) => ResponsiveListView(
         children: [
           LayoutBuilder(
             builder: (context, constraints) {

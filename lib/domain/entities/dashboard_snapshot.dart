@@ -43,6 +43,7 @@ class EmployeeReport {
     required this.ordersEntered,
     required this.ordersReviewed,
     required this.ordersShipped,
+    required this.ordersCompleted,
     required this.ordersReturned,
   });
 
@@ -52,5 +53,6 @@ class EmployeeReport {
   final int ordersEntered;
   final int ordersReviewed;
   final int ordersShipped;
+  final int ordersCompleted;
   final int ordersReturned;
 }

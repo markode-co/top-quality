@@ -16,7 +16,6 @@ begin
 end;
 $$;
 grant execute on function public.notify_user(uuid,text,text,text,text) to authenticated;
-
 -- Recreate create_order to emit notification
 create or replace function public.create_order(
   p_customer_name text,
@@ -72,7 +71,6 @@ begin
 end;
 $$;
 grant execute on function public.create_order(text,text,jsonb,text,text) to authenticated;
-
 -- Transition order status notification
 create or replace function public.transition_order(
   p_order_id uuid,
@@ -107,7 +105,6 @@ begin
 end;
 $$;
 grant execute on function public.transition_order(uuid,text,text) to authenticated;
-
 -- Override order status notification
 create or replace function public.override_order_status(
   p_order_id uuid,
@@ -121,7 +118,6 @@ as $$
   select public.transition_order(p_order_id, p_next_status, p_note);
 $$;
 grant execute on function public.override_order_status(uuid,text,text) to authenticated;
-
 -- Upsert product notification (fires on create or update)
 create or replace function public.upsert_product(
   p_product_id uuid,
@@ -174,7 +170,6 @@ begin
 end;
 $$;
 grant execute on function public.upsert_product(uuid,text,text,text,numeric,numeric,int,int) to authenticated;
-
 -- Wrapper preserved
 create or replace function public.upsert_product(
   p_category text,

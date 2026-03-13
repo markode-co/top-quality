@@ -40,34 +40,58 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     return ordersValue.when(
       data: (orders) {
         final filtered = _applyFilters(orders);
-        return ListView(
-          padding: const EdgeInsets.all(24),
+        return ResponsiveListView(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: context.t(
-                        en: 'Search by customer, phone, or order number',
-                        ar: 'ابحث باسم العميل أو الهاتف أو رقم الطلب',
-                      ),
-                      prefixIcon: const Icon(Icons.search),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 720;
+                final search = TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: context.t(
+                      en: 'Search by customer, phone, or order number',
+                      ar: 'ابحث باسم العميل أو الهاتف أو رقم الطلب',
                     ),
+                    prefixIcon: const Icon(Icons.search),
                   ),
-                ),
-                const SizedBox(width: 12),
-                if (canCreate)
-                  FilledButton.icon(
-                    onPressed: widget.onCreateOrder,
-                    icon: const Icon(Icons.add),
-                    label: Text(
-                      context.t(en: 'New Order', ar: 'طلب جديد'),
-                    ),
-                  ),
-              ],
+                );
+
+                final newOrderButton = canCreate
+                    ? FilledButton.icon(
+                        onPressed: widget.onCreateOrder,
+                        icon: const Icon(Icons.add),
+                        label: Text(
+                          context.t(en: 'New Order', ar: 'طلب جديد'),
+                        ),
+                      )
+                    : null;
+
+                if (narrow) {
+                  return Column(
+                    children: [
+                      search,
+                      if (newOrderButton != null) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: newOrderButton,
+                        ),
+                      ],
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: search),
+                    if (newOrderButton != null) ...[
+                      const SizedBox(width: 12),
+                      newOrderButton,
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             Wrap(

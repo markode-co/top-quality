@@ -1,7 +1,6 @@
 -- Refresh activity logs view to show real actor info and hide diagnostic noise
 
 drop view if exists public.v_activity_logs;
-
 create view public.v_activity_logs as
 select
   l.id,
@@ -20,7 +19,5 @@ select
 from public.activity_logs l
 left join public.users u on u.id = l.actor_id
 left join auth.users au on au.id = l.actor_id
-where l.action not like 'smoke_test%' -- remove diagnostic rows from runtime checker
-;
-
+where l.action not like 'smoke_test%' -- remove diagnostic rows from runtime checker;
 grant select on public.v_activity_logs to authenticated;

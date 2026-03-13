@@ -5,6 +5,7 @@ import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
+import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
 class CreateOrderPage extends ConsumerStatefulWidget {
   const CreateOrderPage({super.key, this.orderId});
@@ -56,8 +57,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
         ),
       ),
       body: productsValue.when(
-        data: (products) => ListView(
-          padding: const EdgeInsets.all(24),
+        data: (products) => ResponsiveListView(
           children: [
             Form(
               key: _formKey,
@@ -160,69 +160,93 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
         margin: const EdgeInsets.only(bottom: 12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: DropdownButtonFormField<String>(
-                  initialValue: line.productId,
-                  decoration: InputDecoration(
-                    labelText: context.t(en: 'Product', ar: 'المنتج'),
-                  ),
-                  items: products
-                      .map(
-                        (product) => DropdownMenuItem(
-                          value: product.id,
-                          child: Text(
-                            context.t(
-                              en: '${product.name} (${product.currentStock} in stock)',
-                              ar: '${product.name} (${product.currentStock} متوفر)',
-                            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 620;
+
+              final productField = DropdownButtonFormField<String>(
+                initialValue: line.productId,
+                decoration: InputDecoration(
+                  labelText: context.t(en: 'Product', ar: 'المنتج'),
+                ),
+                items: products
+                    .map(
+                      (product) => DropdownMenuItem(
+                        value: product.id,
+                        child: Text(
+                          context.t(
+                            en: '${product.name} (${product.currentStock} in stock)',
+                            ar: '${product.name} (${product.currentStock} متوفر)',
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => line.productId = value),
-                  validator: (value) => value == null
-                      ? context.t(en: 'Required', ar: 'مطلوب')
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(context.t(en: 'Qty', ar: 'الكمية')),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: line.quantity > 1
-                              ? () => setState(() => line.quantity--)
-                              : null,
-                          icon: const Icon(Icons.remove_circle_outline),
-                        ),
-                        Text('${line.quantity}'),
-                        IconButton(
-                          onPressed:
-                              selected != null &&
-                                  line.quantity < selected.currentStock
-                              ? () => setState(() => line.quantity++)
-                              : null,
-                          icon: const Icon(Icons.add_circle_outline),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => line.productId = value),
+                validator: (value) => value == null
+                    ? context.t(en: 'Required', ar: 'مطلوب')
+                    : null,
+              );
+
+              final qty = Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.t(en: 'Qty', ar: 'الكمية')),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: line.quantity > 1
+                            ? () => setState(() => line.quantity--)
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      LtrText('${line.quantity}'),
+                      IconButton(
+                        onPressed:
+                            selected != null &&
+                                line.quantity < selected.currentStock
+                                ? () => setState(() => line.quantity++)
+                                : null,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+
+              final deleteBtn = IconButton(
                 onPressed: _lines.length == 1
                     ? null
                     : () => setState(() => _lines.removeAt(index)),
                 icon: const Icon(Icons.delete_outline),
-              ),
-            ],
+              );
+
+              if (narrow) {
+                return Column(
+                  children: [
+                    productField,
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: qty),
+                        deleteBtn,
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 3, child: productField),
+                  const SizedBox(width: 12),
+                  Expanded(child: qty),
+                  deleteBtn,
+                ],
+              );
+            },
           ),
         ),
       );

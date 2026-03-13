@@ -12,5 +12,4 @@ select
   l.created_at
 from public.activity_logs l
 left join public.users u on u.id = l.actor_id;
-
 grant select on public.v_activity_logs to authenticated;

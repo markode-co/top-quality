@@ -2,7 +2,6 @@
 -- Also update ensure_current_user_profile to assign both.
 
 create extension if not exists "pgcrypto";
-
 do $$
 declare
   v_company_id uuid;
@@ -32,10 +31,8 @@ begin
   where company_id is null or branch_id is null;
 end;
 $$;
-
 -- Replace ensure_current_user_profile to set default company/branch
 drop function if exists public.ensure_current_user_profile() cascade;
-
 create or replace function public.ensure_current_user_profile()
 returns json
 language plpgsql
@@ -113,7 +110,5 @@ begin
   return json_build_object('status','ok','created',created_profile);
 end;
 $$;
-
 grant execute on function public.ensure_current_user_profile() to authenticated;
-
 notify pgrst, 'reload schema';

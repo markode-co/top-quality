@@ -12,13 +12,13 @@ class ReportsPage extends ConsumerWidget {
     final reportsValue = ref.watch(employeeReportsProvider);
 
     return reportsValue.when(
-      data: (reports) => ListView(
-        padding: const EdgeInsets.all(24),
+      data: (reports) => ResponsiveListView(
         children: [
           SectionPanel(
             title: context.t(en: 'Employee Reports', ar: 'تقارير الموظفين'),
             trailing: Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 OutlinedButton(
                   onPressed: () => _showExport(
@@ -52,44 +52,113 @@ class ReportsPage extends ConsumerWidget {
                 ),
               ],
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: [
-                  DataColumn(
-                    label: Text(context.t(en: 'Employee', ar: 'الموظف')),
-                  ),
-                  DataColumn(
-                    label: Text(context.t(en: 'Role', ar: 'الدور')),
-                  ),
-                  DataColumn(
-                    label: Text(context.t(en: 'Entered', ar: 'إدخال')),
-                  ),
-                  DataColumn(
-                    label: Text(context.t(en: 'Reviewed', ar: 'مراجعة')),
-                  ),
-                  DataColumn(
-                    label: Text(context.t(en: 'Shipped', ar: 'شحن')),
-                  ),
-                  DataColumn(
-                    label: Text(context.t(en: 'Returned', ar: 'مرتجع')),
-                  ),
-                ],
-                rows: reports
-                    .map(
-                      (report) => DataRow(
-                        cells: [
-                          DataCell(Text(report.userName)),
-                          DataCell(Text(context.roleLabel(report.role))),
-                          DataCell(Text('${report.ordersEntered}')),
-                          DataCell(Text('${report.ordersReviewed}')),
-                          DataCell(Text('${report.ordersShipped}')),
-                          DataCell(Text('${report.ordersReturned}')),
-                        ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final showTable = constraints.maxWidth >= 900;
+                if (!showTable) {
+                  return Column(
+                    children: reports.map((report) {
+                      return Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                report.userName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                context.roleLabel(report.role),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 10,
+                                children: [
+                                  _miniMetric(
+                                    context,
+                                    context.t(en: 'Entered', ar: 'إدخال'),
+                                    '${report.ordersEntered}',
+                                  ),
+                                  _miniMetric(
+                                    context,
+                                    context.t(en: 'Reviewed', ar: 'مراجعة'),
+                                    '${report.ordersReviewed}',
+                                  ),
+                                  _miniMetric(
+                                    context,
+                                    context.t(en: 'Shipped', ar: 'شحن'),
+                                    '${report.ordersShipped}',
+                                  ),
+                                  _miniMetric(
+                                    context,
+                                    context.t(en: 'Completed', ar: 'مكتمل'),
+                                    '${report.ordersCompleted}',
+                                  ),
+                                  _miniMetric(
+                                    context,
+                                    context.t(en: 'Returned', ar: 'مرتجع'),
+                                    '${report.ordersReturned}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: [
+                      DataColumn(
+                        label: Text(context.t(en: 'Employee', ar: 'الموظف')),
                       ),
-                    )
-                    .toList(),
-              ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Role', ar: 'الدور')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Entered', ar: 'إدخال')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Reviewed', ar: 'مراجعة')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Shipped', ar: 'شحن')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Completed', ar: 'مكتمل')),
+                      ),
+                      DataColumn(
+                        label: Text(context.t(en: 'Returned', ar: 'مرتجع')),
+                      ),
+                    ],
+                    rows: reports
+                        .map(
+                          (report) => DataRow(
+                            cells: [
+                              DataCell(Text(report.userName)),
+                              DataCell(Text(context.roleLabel(report.role))),
+                              DataCell(Text('${report.ordersEntered}')),
+                              DataCell(Text('${report.ordersReviewed}')),
+                              DataCell(Text('${report.ordersShipped}')),
+                              DataCell(Text('${report.ordersCompleted}')),
+                              DataCell(Text('${report.ordersReturned}')),
+                            ],
+                          ),
+                        )
+                        .toList(),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -99,15 +168,29 @@ class ReportsPage extends ConsumerWidget {
     );
   }
 
+  static Widget _miniMetric(BuildContext context, String label, String value) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxWidth: 180),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 4),
+          LtrText(value, style: Theme.of(context).textTheme.titleSmall),
+        ],
+      ),
+    );
+  }
+
   static String _csv(BuildContext context, List<dynamic> reports) {
     final rows = <String>[
       context.t(
-        en: 'employee,role,entered,reviewed,shipped,returned',
-        ar: 'الموظف,الدور,إدخال,مراجعة,شحن,مرتجع',
+        en: 'employee,role,entered,reviewed,shipped,completed,returned',
+        ar: 'الموظف,الدور,إدخال,مراجعة,شحن,مكتمل,مرتجع',
       ),
       ...reports.map(
         (report) =>
-            '${report.userName},${report.role.label},${report.ordersEntered},${report.ordersReviewed},${report.ordersShipped},${report.ordersReturned}',
+            '${report.userName},${report.role.label},${report.ordersEntered},${report.ordersReviewed},${report.ordersShipped},${report.ordersCompleted},${report.ordersReturned}',
       ),
     ];
     return rows.join('\n');
@@ -116,12 +199,12 @@ class ReportsPage extends ConsumerWidget {
   static String _tsv(BuildContext context, List<dynamic> reports) {
     final rows = <String>[
       context.t(
-        en: 'Employee\tRole\tEntered\tReviewed\tShipped\tReturned',
-        ar: 'الموظف\tالدور\tإدخال\tمراجعة\tشحن\tمرتجع',
+        en: 'Employee\tRole\tEntered\tReviewed\tShipped\tCompleted\tReturned',
+        ar: 'الموظف\tالدور\tإدخال\tمراجعة\tشحن\tمكتمل\tمرتجع',
       ),
       ...reports.map(
         (report) =>
-            '${report.userName}\t${report.role.label}\t${report.ordersEntered}\t${report.ordersReviewed}\t${report.ordersShipped}\t${report.ordersReturned}',
+            '${report.userName}\t${report.role.label}\t${report.ordersEntered}\t${report.ordersReviewed}\t${report.ordersShipped}\t${report.ordersCompleted}\t${report.ordersReturned}',
       ),
     ];
     return rows.join('\n');
@@ -131,7 +214,7 @@ class ReportsPage extends ConsumerWidget {
     final lines = reports
         .map(
           (report) =>
-              '${report.userName} (${report.role.label}) handled entered=${report.ordersEntered}, reviewed=${report.ordersReviewed}, shipped=${report.ordersShipped}, returned=${report.ordersReturned}.',
+              '${report.userName} (${report.role.label}) handled entered=${report.ordersEntered}, reviewed=${report.ordersReviewed}, shipped=${report.ordersShipped}, completed=${report.ordersCompleted}, returned=${report.ordersReturned}.',
         )
         .join('\n');
     return context.t(
