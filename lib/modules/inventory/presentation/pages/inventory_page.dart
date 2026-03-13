@@ -77,68 +77,14 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             ),
             const SizedBox(height: 16),
             ...filtered.map(
-              (product) => Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  title: Text(product.name),
-                  subtitle: Text('${product.sku} • ${product.category}'),
-                  trailing: Wrap(
-                    spacing: 20,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _MetricText(
-                        label: context.t(en: 'Stock', ar: 'المخزون'),
-                        value: '${product.currentStock}',
-                      ),
-                      _MetricText(
-                        label: context.t(en: 'Price', ar: 'السعر'),
-                        value: AppFormatters.currency(product.salePrice),
-                      ),
-                      _MetricText(
-                        label: context.t(en: 'Profit', ar: 'الربح'),
-                        value: AppFormatters.currency(product.unitProfit),
-                      ),
-                      _MetricText(
-                        label: context.t(en: 'Status', ar: 'الحالة'),
-                        value: product.isLowStock
-                            ? context.t(en: 'Low Stock', ar: 'مخزون منخفض')
-                            : context.t(en: 'Healthy', ar: 'مستقر'),
-                        color: product.isLowStock
-                            ? const Color(0xFFB63D3D)
-                            : const Color(0xFF0C6B58),
-                      ),
-                      if (canAdjust)
-                        IconButton(
-                          onPressed: () =>
-                              _showInventoryDialog(context, product),
-                          icon: const Icon(Icons.tune),
-                          tooltip: context.t(
-                            en: 'Adjust Inventory',
-                            ar: 'تعديل المخزون',
-                          ),
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          onPressed: () =>
-                              _showProductDialog(context, product: product),
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: context.t(
-                            en: 'Edit Product',
-                            ar: 'تعديل المنتج',
-                          ),
-                        ),
-                      if (canDelete)
-                        IconButton(
-                          onPressed: () => _deleteProduct(product.id),
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: context.t(
-                            en: 'Archive Product',
-                            ar: 'أرشفة المنتج',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              (product) => _ProductCard(
+                product: product,
+                canAdjust: canAdjust,
+                canEdit: canEdit,
+                canDelete: canDelete,
+                onAdjust: () => _showInventoryDialog(context, product),
+                onEdit: () => _showProductDialog(context, product: product),
+                onDelete: () => _deleteProduct(product.id),
               ),
             ),
           ],
@@ -429,6 +375,158 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       SnackBar(
         content: Text(
           context.t(en: 'Operation completed.', ar: 'تم تنفيذ العملية.'),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  const _ProductCard({
+    required this.product,
+    required this.canAdjust,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onAdjust,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Product product;
+  final bool canAdjust;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback onAdjust;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = <Widget>[
+      _MetricText(
+        label: context.t(en: 'Stock', ar: 'المخزون'),
+        value: '${product.currentStock}',
+      ),
+      _MetricText(
+        label: context.t(en: 'Price', ar: 'السعر'),
+        value: AppFormatters.currency(product.salePrice),
+      ),
+      _MetricText(
+        label: context.t(en: 'Profit', ar: 'الربح'),
+        value: AppFormatters.currency(product.unitProfit),
+      ),
+      _MetricText(
+        label: context.t(en: 'Status', ar: 'الحالة'),
+        value: product.isLowStock
+            ? context.t(en: 'Low Stock', ar: 'مخزون منخفض')
+            : context.t(en: 'Healthy', ar: 'مستقر'),
+        color: product.isLowStock ? const Color(0xFFB63D3D) : const Color(0xFF0C6B58),
+      ),
+    ];
+
+    final actions = <Widget>[
+      if (canAdjust)
+        IconButton(
+          onPressed: onAdjust,
+          icon: const Icon(Icons.tune),
+          tooltip: context.t(en: 'Adjust Inventory', ar: 'تعديل المخزون'),
+        ),
+      if (canEdit)
+        IconButton(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: context.t(en: 'Edit Product', ar: 'تعديل المنتج'),
+        ),
+      if (canDelete)
+        IconButton(
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline),
+          tooltip: context.t(en: 'Archive Product', ar: 'أرشفة المنتج'),
+        ),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 720;
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${product.sku} • ${product.category}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Flexible(
+                    flex: 3,
+                    child: Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        ...metrics,
+                        if (actions.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: actions,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Narrow layouts
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${product.sku} • ${product.category}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: metrics,
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: actions,
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

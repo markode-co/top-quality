@@ -57,68 +57,13 @@ class UsersPage extends ConsumerWidget {
               ),
             const SizedBox(height: 16),
             ...users.map(
-              (user) => Card(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  title: Text(user.name),
-                  subtitle: Text(
-                    '${user.email}\n${context.roleLabel(user.role)} • ${user.isActive ? context.t(en: 'Active', ar: 'نشط') : context.t(en: 'Inactive', ar: 'غير نشط')}',
-                  ),
-                  isThreeLine: true,
-                  trailing: Wrap(
-                    spacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 280,
-                        child: Text(
-                          '${context.t(en: 'Permissions', ar: 'الصلاحيات')}: ${user.permissions.map((item) => item.code).join(', ')}',
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        user.lastActive == null
-                            ? context.t(
-                                en: 'No recent activity',
-                                ar: 'لا يوجد نشاط حديث',
-                              )
-                            : AppFormatters.shortDateTime(user.lastActive!),
-                      ),
-                      if (canEdit)
-                        IconButton(
-                          onPressed: () =>
-                              _openEmployeeDialog(context, ref, user: user),
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: context.t(
-                            en: 'Edit employee',
-                            ar: 'تعديل الموظف',
-                          ),
-                        ),
-                      if (canEdit)
-                        IconButton(
-                          onPressed: () => _toggleActive(context, ref, user),
-                          icon: Icon(
-                            user.isActive
-                                ? Icons.person_off_outlined
-                                : Icons.person_outline,
-                          ),
-                          tooltip: user.isActive
-                              ? context.t(en: 'Deactivate', ar: 'تعطيل')
-                              : context.t(en: 'Activate', ar: 'تفعيل'),
-                        ),
-                      if (canDelete)
-                        IconButton(
-                          onPressed: () => _deleteUser(context, ref, user.id),
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: context.t(
-                            en: 'Delete employee',
-                            ar: 'حذف الموظف',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              (user) => _UserCard(
+                user: user,
+                canEdit: canEdit,
+                canDelete: canDelete,
+                onEdit: () => _openEmployeeDialog(context, ref, user: user),
+                onToggleActive: () => _toggleActive(context, ref, user),
+                onDelete: () => _deleteUser(context, ref, user.id),
               ),
             ),
             if (!canAssign)
@@ -361,4 +306,148 @@ void _showResult(BuildContext context, WidgetRef ref) {
     ),
   );
 }
+}
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({
+    required this.user,
+    required this.canEdit,
+    required this.canDelete,
+    required this.onEdit,
+    required this.onToggleActive,
+    required this.onDelete,
+  });
+
+  final AppUser user;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback onEdit;
+  final VoidCallback onToggleActive;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final permissionsLabel =
+        user.permissions.map((item) => item.code).join(', ');
+    final actions = <Widget>[
+      if (canEdit)
+        IconButton(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: context.t(en: 'Edit employee', ar: 'تعديل الموظف'),
+        ),
+      if (canEdit)
+        IconButton(
+          onPressed: onToggleActive,
+          icon: Icon(
+            user.isActive
+                ? Icons.person_off_outlined
+                : Icons.person_outline,
+          ),
+          tooltip: user.isActive
+              ? context.t(en: 'Deactivate', ar: 'تعطيل')
+              : context.t(en: 'Activate', ar: 'تفعيل'),
+        ),
+      if (canDelete)
+        IconButton(
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline),
+          tooltip: context.t(en: 'Delete employee', ar: 'حذف الموظف'),
+        ),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 680;
+            final info = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${user.email}\n${context.roleLabel(user.role)} • ${user.isActive ? context.t(en: 'Active', ar: 'نشط') : context.t(en: 'Inactive', ar: 'غير نشط')}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            );
+
+            final meta = Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 260),
+                  child: Text(
+                    '${context.t(en: 'Permissions', ar: 'الصلاحيات')}: $permissionsLabel',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  user.lastActive == null
+                      ? context.t(
+                          en: 'No recent activity',
+                          ar: 'لا يوجد نشاط حديث',
+                        )
+                      : AppFormatters.shortDateTime(user.lastActive!),
+                ),
+              ],
+            );
+
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: info),
+                  const SizedBox(width: 16),
+                  Flexible(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        meta,
+                        if (actions.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: actions,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                info,
+                const SizedBox(height: 12),
+                meta,
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: actions,
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
