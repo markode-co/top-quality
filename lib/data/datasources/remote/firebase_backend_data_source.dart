@@ -223,9 +223,57 @@ class FirebaseBackendDataSource implements BackendDataSource {
   @override
   Stream<List<OrderEntity>> watchOrders() => _supabase
       .from('orders')
-      .stream(primaryKey: ['id'])
-      .order('created_at')
-      .map((rows) => rows.map(_mapOrderRow).toList());
+      .stream(primaryKey: const ['id'])
+      .order('created_at', ascending: false)
+      .asyncMap((rows) async {
+        if (rows.isEmpty) return <OrderEntity>[];
+
+        final orderIds = rows
+            .map((row) => row['id']?.toString())
+            .whereType<String>()
+            .toList();
+
+        final itemsRes = await _supabase
+            .from('order_items')
+            .select(
+              'order_id, product_id, product_name, quantity, purchase_price, sale_price',
+            )
+            .inFilter('order_id', orderIds);
+
+        final historyRes = await _supabase
+            .from('order_status_history')
+            .select(
+              'order_id, status, changed_by, changed_by_name, changed_at, note',
+            )
+            .inFilter('order_id', orderIds);
+
+        final itemsByOrder = <String, List<Map<String, dynamic>>>{};
+        for (final row in (itemsRes as List<dynamic>)) {
+          final map = Map<String, dynamic>.from(row as Map);
+          final oid = map['order_id']?.toString();
+          if (oid == null) continue;
+          itemsByOrder.putIfAbsent(oid, () => []).add(map);
+        }
+
+        final historyByOrder = <String, List<Map<String, dynamic>>>{};
+        for (final row in (historyRes as List<dynamic>)) {
+          final map = Map<String, dynamic>.from(row as Map);
+          final oid = map['order_id']?.toString();
+          if (oid == null) continue;
+          historyByOrder.putIfAbsent(oid, () => []).add(map);
+        }
+
+        return rows.map((row) {
+          final map = Map<String, dynamic>.from(row);
+          map['order_date'] = row['created_at'];
+          map['order_items'] =
+              itemsByOrder[map['id']?.toString()] ?? const <Map<String, dynamic>>[];
+          map['order_status_history'] =
+              historyByOrder[map['id']?.toString()] ??
+              const <Map<String, dynamic>>[];
+          return RemoteMapper.order(map);
+        }).toList();
+      });
 
   @override
   Stream<List<Product>> watchProducts() => _supabase

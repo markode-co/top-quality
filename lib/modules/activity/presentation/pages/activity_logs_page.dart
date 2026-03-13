@@ -237,6 +237,7 @@ String _actionLabel(BuildContext context, String action) {
     'delete_product': 'Delete product',
     'admin-manage-employee': 'Employee action',
     'diagnostics': 'Diagnostics',
+    'adjust_inventory': 'Adjust inventory',
   };
   final mapAr = {
     'login': 'تسجيل دخول',
@@ -250,6 +251,7 @@ String _actionLabel(BuildContext context, String action) {
     'delete_product': 'حذف منتج',
     'admin-manage-employee': 'عملية موظف',
     'diagnostics': 'تشخيص',
+    'adjust_inventory': 'تعديل المخزون',
   };
   return context.t(en: mapEn[action] ?? action, ar: mapAr[action] ?? action);
 }

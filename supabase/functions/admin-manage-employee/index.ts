@@ -74,6 +74,29 @@ interface UserRow {
   roles?: RoleRow[];
 }
 
+/* ================= LOGGING ================= */
+
+async function logActivity(
+  admin: SupabaseClient,
+  caller: CallerContext,
+  action: string,
+  employeeId?: string,
+  metadata?: Record<string, unknown>,
+) {
+  try {
+    await (admin.from("activity_logs") as any).insert({
+      actor_id: caller.id,
+      action,
+      entity_type: "employee",
+      entity_id: employeeId ?? null,
+      metadata: metadata ?? {},
+      company_id: caller.companyId,
+    });
+  } catch (e) {
+    console.error("logActivity failed", e);
+  }
+}
+
 /* ================= ENTRY ================= */
 
 Deno.serve(async (req: Request) => {
@@ -108,11 +131,11 @@ Deno.serve(async (req: Request) => {
       case "create":
         return await createEmployee(admin, caller, body, permissions);
       case "update":
-        return await updateEmployee(admin, body, permissions);
+        return await updateEmployee(admin, caller, body, permissions);
       case "deactivate":
-        return await deactivateEmployee(admin, body);
+        return await deactivateEmployee(admin, caller, body);
       case "delete":
-        return await deleteEmployee(admin, body);
+        return await deleteEmployee(admin, caller, body);
       default:
         throw new HttpError(400, "Invalid action");
     }
@@ -218,6 +241,11 @@ async function createEmployee(
     );
   }
 
+  await logActivity(admin, caller, "admin-manage-employee", userId, {
+    action: "create",
+    role: role.role_name,
+  });
+
   return jsonResponse({ status: "ok", employeeId: userId });
 }
 
@@ -225,6 +253,7 @@ async function createEmployee(
 
 async function updateEmployee(
   admin: SupabaseClient,
+  caller: CallerContext,
   body: RequestBody,
   permissions: string[],
 ) {
@@ -249,6 +278,11 @@ async function updateEmployee(
     );
   }
 
+  await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
+    action: "update",
+    role: role?.role_name,
+  });
+
   return jsonResponse({ status: "ok" });
 }
 
@@ -256,6 +290,7 @@ async function updateEmployee(
 
 async function deactivateEmployee(
   admin: SupabaseClient,
+  caller: CallerContext,
   body: RequestBody,
 ) {
   if (!body.employeeId) throw new HttpError(400, "employeeId missing");
@@ -266,6 +301,10 @@ async function deactivateEmployee(
 
   if (error) throw new HttpError(400, error.message);
 
+  await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
+    action: body.isActive ? "activate" : "deactivate",
+  });
+
   return jsonResponse({ status: "ok" });
 }
 
@@ -273,12 +312,17 @@ async function deactivateEmployee(
 
 async function deleteEmployee(
   admin: SupabaseClient,
+  caller: CallerContext,
   body: RequestBody,
 ) {
   if (!body.employeeId) throw new HttpError(400, "employeeId missing");
 
   await (admin.from("users") as any).delete().eq("id", body.employeeId);
   await admin.auth.admin.deleteUser(body.employeeId);
+
+  await logActivity(admin, caller, "admin-manage-employee", body.employeeId, {
+    action: "delete",
+  });
 
   return jsonResponse({ status: "ok" });
 }
@@ -337,8 +381,17 @@ async function getCallerContext(
     .select("permission_code")
     .eq("user_id", user.id);
 
+  const { data: rolePerms } = await (admin.from("role_permissions") as any)
+    .select("permission_code")
+    .eq("role_id", data.role_id);
+
   const email = user.email?.toLowerCase() ?? "";
   const hardAdmin = user.id === fallbackId || email === fallbackEmail;
+
+  const permissionSet = new Set<string>([
+    ...(perms ?? []).map((p: PermissionRow) => p.permission_code),
+    ...(rolePerms ?? []).map((p: PermissionRow) => p.permission_code),
+  ]);
 
   return {
     id: user.id,
@@ -347,9 +400,7 @@ async function getCallerContext(
     branchId: data.branch_id,
     roleId: data.role_id,
     roleName: hardAdmin ? "Admin" : data.roles?.[0]?.role_name ?? "",
-    permissions: hardAdmin
-      ? new Set(hardAdminPermissions)
-      : new Set((perms ?? []).map((p: PermissionRow) => p.permission_code)),
+    permissions: hardAdmin ? new Set(hardAdminPermissions) : permissionSet,
   };
 }
 
