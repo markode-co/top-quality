@@ -11,7 +11,7 @@ import {
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-auth, x-sb-jwt, x-jwt",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -90,6 +90,13 @@ function extractToken(req: Request): string | null {
   if (authHeader?.startsWith("Bearer ")) {
     return authHeader.slice("Bearer ".length).trim();
   }
+
+  // Supabase Edge may forward user JWT in custom headers when verify_jwt=false
+  const headerToken =
+    req.headers.get("x-supabase-auth") ??
+    req.headers.get("x-sb-jwt") ??
+    req.headers.get("x-jwt");
+  if (headerToken) return headerToken.trim();
 
   // Fallback: try to read from cookies (web clients may rely on sb-access-token cookie)
   const cookie = req.headers.get("Cookie") ?? req.headers.get("cookie");

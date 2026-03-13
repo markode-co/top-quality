@@ -1,6 +1,6 @@
-﻿import {
-  createAdminClient,
+import {
   authenticate,
+  createAdminClient,
   corsHeaders,
   handleError,
   HttpError,
@@ -8,18 +8,16 @@
 } from "../supabase-edge-helpers.ts";
 
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-// Optional hard admin override so an emergency account can always manage employees.
-// Configure via env: HARD_ADMIN_EMAILS="admin@example.com,other@example.com" and HARD_ADMIN_ID.
-// Defaults keep the existing fallback used elsewhere in the app.
+
+/* ================= HARD ADMIN ================= */
+
 const fallbackEmail =
   Deno.env.get("HARD_ADMIN_EMAILS")?.split(",")
     .map((s) => s.trim().toLowerCase())
-    .find(Boolean) ??
-  "markode@gmail.com";
+    .find(Boolean) ?? "markode@gmail.com";
 
 const fallbackId =
-  Deno.env.get("HARD_ADMIN_ID")?.trim() ??
-  "b65ad043-1ead-42bd-b9b3-2f455b01f7be";
+  Deno.env.get("HARD_ADMIN_ID")?.trim() ?? "b65ad043-1ead-42bd-b9b3-2f455b01f7be";
 
 const hardAdminPermissions = new Set([
   "users_create",
@@ -28,438 +26,316 @@ const hardAdminPermissions = new Set([
   "users_view",
 ]);
 
-const authDisabledEnv = Deno.env.get("DISABLE_ADMIN_EMPLOYEE_AUTH")
-// Treat presence (unless explicitly "false") as a temporary auth bypass.
-const authDisabled =
-  authDisabledEnv !== undefined && authDisabledEnv.toLowerCase() !== "false";
+/* ================= AUTH DISABLE ================= */
 
+const authDisabled = false; // always require auth
 
-/* ---------------- TYPES ---------------- */
+/* ================= TYPES ================= */
 
 type Action = "create" | "update" | "deactivate" | "delete" | "list";
 
 interface RequestBody {
-  action: Action
-  employeeId?: string
-  name?: string
-  email?: string
-  password?: string
-  roleName?: string
-  permissions?: string[]
-  isActive?: boolean
+  action: Action;
+  employeeId?: string;
+  name?: string;
+  email?: string;
+  password?: string;
+  roleName?: string;
+  permissions?: string[];
+  isActive?: boolean;
 }
 
 interface CallerContext {
-  id: string
-  email: string
-  companyId: string
-  branchId: string | null
-  roleId: string
-  roleName: string
-  isActive: boolean
-  permissions: Set<string>
+  id: string;
+  email?: string;
+  companyId: string;
+  branchId: string | null;
+  roleId?: string;
+  roleName: string;
+  permissions: Set<string>;
 }
 
 interface RoleRow {
-  role_name: string
+  id: string;
+  role_name: string;
 }
-
 interface PermissionRow {
-  permission_code: string
+  user_id: string;
+  permission_code: string;
 }
-
 interface UserRow {
-  id: string
-  name: string
-  email: string
-  is_active: boolean
-  branch_id: string | null
-  role?: RoleRow[]
-  user_permissions?: PermissionRow[]
+  id: string;
+  company_id: string;
+  branch_id: string | null;
+  role_id: string;
+  name?: string;
+  email?: string;
+  is_active: boolean;
+  roles?: RoleRow[];
 }
 
-/* ---------------- ENTRY ---------------- */
-
-console.info("admin-manage-employee started")
+/* ================= ENTRY ================= */
 
 Deno.serve(async (req: Request) => {
-
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const admin = createAdminClient();
 
-    const adminClient = createAdminClient()
-
-    // Allow temporarily disabling auth via env for maintenance/seeding.
-    if (authDisabled) {
-      console.warn("DISABLE_ADMIN_EMPLOYEE_AUTH set; skipping authentication")
-    }
-
+    // ---------------- AUTH ----------------
     const { user } = authDisabled
-      ? { user: { id: fallbackId, email: fallbackEmail } as { id: string; email?: string } }
-      : await authenticate(req, adminClient)
+      ? { user: { id: fallbackId, email: fallbackEmail } }
+      : await authenticate(req);
 
-    const body = await req.json() as RequestBody
+    const body = (await req.json()) as RequestBody;
+    if (!body.action) throw new HttpError(400, "Missing action");
 
-    if (!body.action) {
-      throw new HttpError(400, "Missing action")
-    }
-
-    const caller = await getCallerContext(adminClient, user)
-
-    assertActionAllowed(caller, body.action)
+    const caller = await getCallerContext(admin, {
+      id: user.id,
+      email: user.email ?? undefined,
+    });
+    assertAllowed(caller, body.action);
 
     const permissions = Array.from(
-      new Set(
-        (body.permissions ?? [])
-          .map((p: string) => p.trim())
-          .filter(Boolean)
-      )
-    )
+      new Set((body.permissions ?? []).map((p) => p.trim()).filter(Boolean)),
+    );
 
     switch (body.action) {
-
-      case "create":
-        return await handleCreate(adminClient, caller, body, permissions)
-
-      case "update":
-        return await handleUpdate(adminClient, body, permissions)
-
-      case "deactivate":
-        return await handleDeactivate(adminClient, body)
-
-      case "delete":
-        return await handleDelete(adminClient, body)
-
       case "list":
-        return await handleList(adminClient, caller)
-
+        return await listEmployees(admin, caller);
+      case "create":
+        return await createEmployee(admin, caller, body, permissions);
+      case "update":
+        return await updateEmployee(admin, body, permissions);
+      case "deactivate":
+        return await deactivateEmployee(admin, body);
+      case "delete":
+        return await deleteEmployee(admin, body);
       default:
-        throw new HttpError(400, "Invalid action")
+        throw new HttpError(400, "Invalid action");
     }
-
-  } catch (error) {
-    console.error("admin-manage-employee error", error)
-    return handleError(error)
+  } catch (e) {
+    console.error("EDGE ERROR:", e);
+    return handleError(e);
   }
+});
 
-})
+/* ================= LIST ================= */
 
-/* ---------------- CREATE ---------------- */
-
-async function handleCreate(
-  adminClient: SupabaseClient,
+async function listEmployees(
+  admin: SupabaseClient,
   caller: CallerContext,
-  body: RequestBody,
-  permissions: string[]
 ) {
-
-  if (!body.name || !body.email || !body.password || !body.roleName) {
-    throw new HttpError(400, "Missing fields")
-  }
-
-  const role = await findRoleByName(adminClient, body.roleName)
-
-  if (!role) {
-    throw new HttpError(400, "Invalid role")
-  }
-
-  const { data: created, error: createError } =
-    await adminClient.auth.admin.createUser({
-      email: body.email,
-      password: body.password,
-      email_confirm: true,
-      user_metadata: { name: body.name }
-    })
-
-  if (createError || !created.user) {
-    throw new HttpError(400, createError?.message ?? "Auth create failed")
-  }
-
-  const employeeId = created.user.id
-
-  const { error: insertError } =
-    await adminClient.from("users").insert({
-      id: employeeId,
-      company_id: caller.companyId,
-      branch_id: caller.branchId,
-      name: body.name,
-      email: body.email,
-      role_id: role.id,
-      is_active: body.isActive ?? true
-    })
-
-  if (insertError) {
-    throw new HttpError(400, insertError.message)
-  }
-
-  if (permissions.length > 0) {
-
-    const rows = permissions.map((p: string) => ({
-      user_id: employeeId,
-      permission_code: p
-    }))
-
-    const { error } =
-      await adminClient.from("user_permissions").insert(rows)
-
-    if (error) throw new HttpError(400, error.message)
-  }
-
-  return jsonResponse({
-    status: "ok",
-    employeeId
-  })
-}
-
-/* ---------------- LIST ---------------- */
-
-async function handleList(
-  adminClient: SupabaseClient,
-  caller: CallerContext
-) {
-
-  const { data, error } = await adminClient
-    .from("users")
+  const { data, error } = await (admin.from("users") as any)
     .select(`
       id,
+      company_id,
+      branch_id,
+      role_id,
       name,
       email,
       is_active,
-      branch_id,
-      role:roles(role_name),
-      user_permissions(permission_code)
+      roles(id, role_name),
+      user_permissions(user_id, permission_code)
     `)
     .eq("company_id", caller.companyId)
-    .order("name")
+    .order("name");
 
-  if (error) throw new HttpError(400, error.message)
+  if (error) throw new HttpError(400, error.message);
 
-  const employees = (data ?? []).map((row: UserRow) => ({
-
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    isActive: row.is_active,
-    branchId: row.branch_id,
-
-    roleName:
-      Array.isArray(row.role)
-        ? row.role[0]?.role_name ?? ""
-        : "",
-
-    permissions:
-      (row.user_permissions ?? [])
-        .map((p: PermissionRow) => p.permission_code)
-
-  }))
-
-  return jsonResponse({
-    status: "ok",
-    employees
-  })
+  return jsonResponse({ status: "ok", employees: data ?? [] });
 }
 
-/* ---------------- UPDATE ---------------- */
+/* ================= CREATE ================= */
 
-async function handleUpdate(
-  adminClient: SupabaseClient,
-  body: RequestBody,
-  permissions: string[]
-) {
-
-  if (!body.employeeId) {
-    throw new HttpError(400, "employeeId required")
-  }
-
-  const role = body.roleName
-    ? await findRoleByName(adminClient, body.roleName)
-    : null
-
-  const { error } = await adminClient
-    .from("users")
-    .update({
-      name: body.name,
-      email: body.email,
-      role_id: role?.id,
-      is_active: body.isActive ?? true
-    })
-    .eq("id", body.employeeId)
-
-  if (error) throw new HttpError(400, error.message)
-
-  await adminClient
-    .from("user_permissions")
-    .delete()
-    .eq("user_id", body.employeeId)
-
-  if (permissions.length > 0) {
-
-    const rows = permissions.map((p: string) => ({
-      user_id: body.employeeId,
-      permission_code: p
-    }))
-
-    await adminClient
-      .from("user_permissions")
-      .insert(rows)
-  }
-
-  return jsonResponse({ status: "ok" })
-}
-
-/* ---------------- ACTIVATE ---------------- */
-
-async function handleDeactivate(
-  adminClient: SupabaseClient,
-  body: RequestBody
-) {
-
-  if (!body.employeeId) {
-    throw new HttpError(400, "employeeId missing")
-  }
-
-  const { error } = await adminClient
-    .from("users")
-    .update({ is_active: body.isActive ?? false })
-    .eq("id", body.employeeId)
-
-  if (error) throw new HttpError(400, error.message)
-
-  return jsonResponse({ status: "ok" })
-}
-
-/* ---------------- DELETE ---------------- */
-
-async function handleDelete(
-  adminClient: SupabaseClient,
-  body: RequestBody
-) {
-
-  if (!body.employeeId) {
-    throw new HttpError(400, "employeeId missing")
-  }
-
-  await adminClient.from("users").delete().eq("id", body.employeeId)
-
-  await adminClient.auth.admin.deleteUser(body.employeeId)
-
-  return jsonResponse({ status: "ok" })
-}
-
-/* ---------------- ROLE ---------------- */
-
-async function findRoleByName(
-  adminClient: SupabaseClient,
-  roleName: string
-) {
-
-  const { data, error } =
-    await adminClient.from("roles").select("*")
-
-  if (error) throw new HttpError(400, error.message)
-
-  const normalized = roleName.toLowerCase()
-
-  return data.find(
-    (r: { role_name: string }) =>
-      r.role_name?.toLowerCase() === normalized
-  ) ?? null
-}
-
-/* ---------------- PERMISSIONS ---------------- */
-
-function assertActionAllowed(
+async function createEmployee(
+  admin: SupabaseClient,
   caller: CallerContext,
-  action: Action
+  body: RequestBody,
+  permissions: string[],
 ) {
+  if (!body.name || !body.email || !body.password || !body.roleName) {
+    throw new HttpError(400, "Missing required fields");
+  }
 
-  if (caller.roleName === "Admin") return
+  const name = body.name;
+  const email = body.email;
+  const password = body.password;
+  const roleName = body.roleName;
 
-  const permissions: Record<Action, string> = {
+  const role = await findRole(admin, roleName);
+
+  const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name },
+  });
+
+  if (authErr || !authUser.user) {
+    throw new HttpError(400, authErr?.message ?? "Auth create failed");
+  }
+
+  const userId = authUser.user.id;
+
+  const { error: dbErr } = await (admin.from("users") as any).insert({
+    id: userId,
+    company_id: caller.companyId,
+    branch_id: caller.branchId,
+    name,
+    email,
+    role_id: role.id,
+    is_active: body.isActive ?? true,
+  });
+
+  if (dbErr) {
+    await admin.auth.admin.deleteUser(userId);
+    throw new HttpError(400, dbErr.message);
+  }
+
+  if (permissions.length) {
+    await (admin.from("user_permissions") as any).insert(
+      permissions.map((p) => ({ user_id: userId, permission_code: p })),
+    );
+  }
+
+  return jsonResponse({ status: "ok", employeeId: userId });
+}
+
+/* ================= UPDATE ================= */
+
+async function updateEmployee(
+  admin: SupabaseClient,
+  body: RequestBody,
+  permissions: string[],
+) {
+  if (!body.employeeId) throw new HttpError(400, "employeeId required");
+
+  const role = body.roleName ? await findRole(admin, body.roleName) : null;
+
+  const { error } = await (admin.from("users") as any).update({
+    name: body.name,
+    email: body.email,
+    role_id: role?.id,
+    is_active: body.isActive,
+  }).eq("id", body.employeeId);
+
+  if (error) throw new HttpError(400, error.message);
+
+  await (admin.from("user_permissions") as any).delete().eq("user_id", body.employeeId);
+
+  if (permissions.length) {
+    await (admin.from("user_permissions") as any).insert(
+      permissions.map((p) => ({ user_id: body.employeeId, permission_code: p })),
+    );
+  }
+
+  return jsonResponse({ status: "ok" });
+}
+
+/* ================= DEACTIVATE ================= */
+
+async function deactivateEmployee(
+  admin: SupabaseClient,
+  body: RequestBody,
+) {
+  if (!body.employeeId) throw new HttpError(400, "employeeId missing");
+
+  const { error } = await (admin.from("users") as any)
+    .update({ is_active: body.isActive ?? false })
+    .eq("id", body.employeeId);
+
+  if (error) throw new HttpError(400, error.message);
+
+  return jsonResponse({ status: "ok" });
+}
+
+/* ================= DELETE ================= */
+
+async function deleteEmployee(
+  admin: SupabaseClient,
+  body: RequestBody,
+) {
+  if (!body.employeeId) throw new HttpError(400, "employeeId missing");
+
+  await (admin.from("users") as any).delete().eq("id", body.employeeId);
+  await admin.auth.admin.deleteUser(body.employeeId);
+
+  return jsonResponse({ status: "ok" });
+}
+
+/* ================= ROLE ================= */
+
+async function findRole(admin: SupabaseClient, name: string): Promise<RoleRow> {
+  const { data, error } = await (admin.from("roles") as any).select("*");
+  if (error) throw new HttpError(400, error.message);
+
+  const role = data.find((r: RoleRow) => r.role_name.toLowerCase() === name.toLowerCase());
+  if (!role) throw new HttpError(400, "Invalid role");
+
+  return role;
+}
+
+/* ================= PERMISSION ================= */
+
+function assertAllowed(caller: CallerContext, action: Action) {
+  if (caller.roleName === "Admin") return;
+
+  const map: Record<Action, string> = {
     create: "users_create",
     update: "users_edit",
     deactivate: "users_edit",
     delete: "users_delete",
-    list: "users_view"
-  }
+    list: "users_view",
+  };
 
-  const needed = permissions[action]
-
-  if (!caller.permissions.has(needed)) {
-    throw new HttpError(403, "Missing permission: " + needed)
+  if (!caller.permissions.has(map[action])) {
+    throw new HttpError(403, "Permission denied");
   }
 }
 
-/* ---------------- CALLER ---------------- */
+/* ================= CALLER CONTEXT ================= */
 
 async function getCallerContext(
-  adminClient: SupabaseClient,
-  caller: { id: string; email?: string }
+  admin: SupabaseClient,
+  user: { id: string; email?: string },
 ): Promise<CallerContext> {
-
-  const { data, error } = await adminClient
-    .from("users")
+  const { data, error } = await (admin.from("users") as any)
     .select(`
       id,
       company_id,
       branch_id,
       role_id,
       is_active,
-      roles(role_name)
+      roles(id, role_name)
     `)
-    .eq("id", caller.id)
-    .single()
+    .eq("id", user.id)
+    .single();
 
-  if (error || !data) {
-    throw new HttpError(403, "Caller not found")
-  }
+  if (error || !data) throw new HttpError(403, "Caller not found");
 
-  const { data: permissions } = await adminClient
-    .from("user_permissions")
+  const { data: perms } = await (admin.from("user_permissions") as any)
     .select("permission_code")
-    .eq("user_id", caller.id)
+    .eq("user_id", user.id);
 
-  const email = caller.email?.toLowerCase() ?? ""
-  const hardAdmin =
-    caller.id === fallbackId ||
-    (email && email === fallbackEmail)
-
-  const roleName = hardAdmin
-    ? "Admin"
-    : Array.isArray(data.roles)
-      ? data.roles[0]?.role_name ?? ""
-      : ""
-
-  const permissionSet = new Set(
-    (permissions ?? []).map(
-      (p: PermissionRow) => p.permission_code
-    )
-  )
+  const email = user.email?.toLowerCase() ?? "";
+  const hardAdmin = user.id === fallbackId || email === fallbackEmail;
 
   return {
-
-    id: caller.id,
-    email: caller.email ?? "",
-
+    id: user.id,
+    email: user.email,
     companyId: data.company_id,
     branchId: data.branch_id,
     roleId: data.role_id,
-
-    roleName,
-
-    isActive: data.is_active,
-
+    roleName: hardAdmin ? "Admin" : data.roles?.[0]?.role_name ?? "",
     permissions: hardAdmin
       ? new Set(hardAdminPermissions)
-      : permissionSet
-
-  }
+      : new Set((perms ?? []).map((p: PermissionRow) => p.permission_code)),
+  };
 }
 
-// Disable platform JWT verification (we handle auth manually)
-export const config = {
-  verifyJWT: false
-}
+/* ================= CONFIG ================= */
+
+export const config = { verifyJWT: false };
