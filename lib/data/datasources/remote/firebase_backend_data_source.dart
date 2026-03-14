@@ -419,6 +419,11 @@ class FirebaseBackendDataSource implements BackendDataSource {
           AppPermission.usersView,
           AppPermission.productsView,
         };
+      case UserRole.viewer:
+        return {
+          AppPermission.dashboardView,
+          AppPermission.usersView,
+        };
     }
   }
 

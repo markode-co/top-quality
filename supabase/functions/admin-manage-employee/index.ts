@@ -428,7 +428,23 @@ async function findRole(admin: SupabaseClient, name: string): Promise<RoleRow> {
   const { data, error } = await (admin.from("roles") as any).select("*");
   if (error) throw new HttpError(400, error.message);
 
-  const role = data.find((r: RoleRow) => r.role_name.toLowerCase() === name.toLowerCase());
+  const lowered = name.toLowerCase();
+
+  // direct match
+  let role = data.find((r: RoleRow) => r.role_name.toLowerCase() === lowered);
+  // alias handling to avoid falling back to Order Entry unintentionally
+  if (!role) {
+    if (lowered.includes("view")) {
+      role = data.find((r: RoleRow) => r.role_name.toLowerCase() === "viewer");
+    } else if (lowered.includes("review")) {
+      role = data.find((r: RoleRow) => r.role_name.toLowerCase() === "order reviewer");
+    } else if (lowered.includes("shipping")) {
+      role = data.find((r: RoleRow) => r.role_name.toLowerCase() === "shipping user");
+    } else if (lowered.includes("entry") || lowered.includes("employee")) {
+      role = data.find((r: RoleRow) => r.role_name.toLowerCase() === "order entry user");
+    }
+  }
+
   if (!role) throw new HttpError(400, "Invalid role");
 
   return role;
@@ -442,6 +458,16 @@ async function ensureCompany(
   const trimmed = companyName?.trim();
   if (!trimmed) return caller.companyId;
 
+  // Try to reuse existing company with the same name
+  const { data: found, error: findErr } = await (admin.from("companies") as any)
+    .select("id")
+    .ilike("name", trimmed)
+    .limit(1)
+    .maybeSingle();
+  if (findErr) throw new HttpError(400, findErr.message);
+  if (found?.id) return found.id as string;
+
+  // Otherwise create a fresh company record
   const { data: inserted, error: insertErr } = await (admin.from("companies") as any)
     .insert({ name: trimmed, is_active: true })
     .select("id")

@@ -3,6 +3,7 @@ enum AppMode { setupRequired, live }
 enum UserRole {
   orderEntry('Order Entry User'),
   reviewer('Order Reviewer'),
+  viewer('Viewer'),
   shipping('Shipping User'),
   admin('Admin');
 
@@ -16,7 +17,7 @@ enum UserRole {
       case 'order entry':
       case 'employee':
       case 'viewer':
-        return UserRole.orderEntry;
+        return UserRole.viewer;
       case 'order reviewer':
       case 'reviewer':
       case 'manager':
@@ -63,7 +64,9 @@ enum AppPermission {
   usersAssignPermissions('users_assign_permissions'),
   dashboardView('dashboard_view'),
   notificationsView('notifications_view'),
-  activityLogsView('activity_logs_view');
+  activityLogsView('activity_logs_view'),
+  activityLogsViewAll('activity_logs_view_all'),
+  activityLogsCompanyView('activity_logs_company_view');
 
   const AppPermission(this.code);
 

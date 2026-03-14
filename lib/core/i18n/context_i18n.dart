@@ -16,6 +16,7 @@ extension ContextI18n on BuildContext {
       UserRole.shipping =>
           t(en: 'Shipping User', ar: 'مسؤول الشحن'),
       UserRole.admin => t(en: 'Admin', ar: 'مدير النظام'),
+      UserRole.viewer => t(en: 'Viewer', ar: 'عارض'),
     };
   }
 

@@ -1,4 +1,4 @@
-import 'package:top_quality/core/constants/app_enums.dart';
+﻿import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
@@ -23,8 +23,8 @@ class RemoteMapper {
       roleName: rawRoleName,
     );
 
-    // إذا كانت الصلاحيات المرسلة تمثل وصولاً كاملاً أو تحتوي admin_access
-    // اجعل الدور Admin حتى لو كان اسم الدور أو المعرّف مفقودين في البيانات الواردة.
+    // ط¥ط°ط§ ظƒط§ظ†طھ ط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ظ…ط±ط³ظ„ط© طھظ…ط«ظ„ ظˆطµظˆظ„ط§ظ‹ ظƒط§ظ…ظ„ط§ظ‹ ط£ظˆ طھط­طھظˆظٹ admin_access
+    // ط§ط¬ط¹ظ„ ط§ظ„ط¯ظˆط± Admin ط­طھظ‰ ظ„ظˆ ظƒط§ظ† ط§ط³ظ… ط§ظ„ط¯ظˆط± ط£ظˆ ط§ظ„ظ…ط¹ط±ظ‘ظپ ظ…ظپظ‚ظˆط¯ظٹظ† ظپظٹ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„ظˆط§ط±ط¯ط©.
     final isMarkode = email.toLowerCase() == 'markode@gmail.com';
 
     if (isMarkode) {
@@ -66,7 +66,7 @@ class RemoteMapper {
       return AppPermission.values.toSet();
     }
 
-    // إذا وُجد كود admin_access ضمن الصلاحيات، اعتبره أدمن أيضًا.
+    // ط¥ط°ط§ ظˆظڈط¬ط¯ ظƒظˆط¯ admin_access ط¶ظ…ظ† ط§ظ„طµظ„ط§ط­ظٹط§طھطŒ ط§ط¹طھط¨ط±ظ‡ ط£ط¯ظ…ظ† ط£ظٹط¶ظ‹ط§.
     if (permissionList.contains('admin_access')) {
       return AppPermission.values.toSet();
     }
@@ -77,7 +77,7 @@ class RemoteMapper {
     return resolved;
   }
 
-  static Set<AppPermission> _defaultRolePermissions(UserRole role) {
+    static Set<AppPermission> _defaultRolePermissions(UserRole role) {
     switch (role) {
       case UserRole.admin:
         return AppPermission.values.toSet();
@@ -99,11 +99,16 @@ class RemoteMapper {
           AppPermission.inventoryView,
           AppPermission.ordersView,
         };
-      case UserRole.shipping: // Viewer (عرض فقط)
+      case UserRole.shipping: // Shipping-only
         return {
           AppPermission.dashboardView,
           AppPermission.usersView,
           AppPermission.productsView,
+        };
+      case UserRole.viewer: // Read-only
+        return {
+          AppPermission.dashboardView,
+          AppPermission.usersView,
         };
     }
   }
@@ -231,3 +236,4 @@ class RemoteMapper {
     );
   }
 }
+
