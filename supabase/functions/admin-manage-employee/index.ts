@@ -227,6 +227,7 @@ async function createEmployee(
     password,
     email_confirm: true,
     user_metadata: { name },
+    ban_duration: "none",
   });
 
   if (authErr || !authUser.user) {
@@ -317,6 +318,10 @@ async function updateEmployee(
 
   if (error) throw new HttpError(400, error.message);
 
+  if (body.isActive !== undefined && body.isActive !== null) {
+    await setAuthBan(admin, body.employeeId, !(body.isActive as boolean));
+  }
+
   await (admin.from("user_permissions") as any).delete().eq("user_id", body.employeeId);
 
   if (permissions.length) {
@@ -358,6 +363,9 @@ async function deactivateEmployee(
     .select("name,email")
     .eq("id", body.employeeId)
     .maybeSingle();
+
+  // Block/allow auth login accordingly.
+  await setAuthBan(admin, body.employeeId, !(body.isActive ?? false));
 
   const { error } = await (admin.from("users") as any)
     .update({ is_active: body.isActive ?? false })
@@ -434,14 +442,6 @@ async function ensureCompany(
   const trimmed = companyName?.trim();
   if (!trimmed) return caller.companyId;
 
-  const { data: found, error } = await (admin.from("companies") as any)
-    .select("id, name")
-    .ilike("name", trimmed)
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new HttpError(400, error.message);
-  if (found?.id) return found.id as string;
-
   const { data: inserted, error: insertErr } = await (admin.from("companies") as any)
     .insert({ name: trimmed, is_active: true })
     .select("id")
@@ -450,6 +450,20 @@ async function ensureCompany(
     throw new HttpError(400, insertErr?.message ?? "Failed to create company");
   }
   return inserted.id as string;
+}
+
+async function setAuthBan(
+  admin: SupabaseClient,
+  userId: string,
+  banned: boolean,
+) {
+  try {
+    await admin.auth.admin.updateUserById(userId, {
+      ban_duration: banned ? "876000h" : "none", // ~100 سنوات
+    });
+  } catch (e) {
+    console.error("setAuthBan failed", e);
+  }
 }
 
 /* ================= PERMISSION ================= */

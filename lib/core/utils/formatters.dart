@@ -15,10 +15,10 @@ class AppFormatters {
   static String currency(double value) => _currency.format(value);
 
   static String shortDate(DateTime value) =>
-      DateFormat('dd MMM yyyy', 'ar_EG').format(value);
+      DateFormat('dd MMM yyyy', 'ar_EG').format(value.toLocal());
 
   static String shortDateTime(DateTime value) =>
-      DateFormat('dd MMM yyyy, hh:mm a', 'ar_EG').format(value);
+      DateFormat('dd MMM yyyy, hh:mm a', 'ar_EG').format(value.toLocal());
 
   static String compact(num value) => _compact.format(value);
 }
