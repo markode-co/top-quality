@@ -16,6 +16,7 @@ enum UserRole {
       case 'order entry user':
       case 'order entry':
       case 'employee':
+        return UserRole.orderEntry;
       case 'viewer':
         return UserRole.viewer;
       case 'order reviewer':

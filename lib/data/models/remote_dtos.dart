@@ -77,38 +77,57 @@ class RemoteMapper {
     return resolved;
   }
 
-    static Set<AppPermission> _defaultRolePermissions(UserRole role) {
+  static Set<AppPermission> _defaultRolePermissions(UserRole role) {
     switch (role) {
       case UserRole.admin:
         return AppPermission.values.toSet();
       case UserRole.reviewer: // Manager
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
+          AppPermission.usersCreate,
+          AppPermission.usersEdit,
+          AppPermission.usersDelete,
+          AppPermission.usersAssignPermissions,
           AppPermission.productsView,
           AppPermission.inventoryView,
           AppPermission.ordersView,
+          AppPermission.ordersEdit,
+          AppPermission.ordersApprove,
           AppPermission.reportsView,
           AppPermission.activityLogsView,
         };
       case UserRole.orderEntry: // Employee
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
           AppPermission.productsView,
           AppPermission.inventoryView,
           AppPermission.ordersView,
+          AppPermission.ordersCreate,
+          AppPermission.ordersEdit,
         };
       case UserRole.shipping: // Shipping-only
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
           AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+          AppPermission.ordersShip,
         };
       case UserRole.viewer: // Read-only
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
+          AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+          AppPermission.reportsView,
         };
     }
   }

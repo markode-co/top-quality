@@ -495,7 +495,7 @@ async function setAuthBan(
 /* ================= PERMISSION ================= */
 
 function assertAllowed(caller: CallerContext, action: Action) {
-  if (caller.roleName === "Admin") return;
+  if (isAdminRole(caller.roleName)) return;
 
   const map: Record<Action, string> = {
     create: "users_create",
@@ -508,6 +508,17 @@ function assertAllowed(caller: CallerContext, action: Action) {
   if (!caller.permissions.has(map[action])) {
     throw new HttpError(403, "Permission denied");
   }
+}
+
+function isAdminRole(roleName: string | null | undefined): boolean {
+  const lowered = (roleName ?? "").trim().toLowerCase();
+  return (
+    lowered === "admin" ||
+    lowered === "system administrator" ||
+    lowered === "administrator" ||
+    lowered === "super admin" ||
+    lowered === "superadmin"
+  );
 }
 
 /* ================= CALLER CONTEXT ================= */

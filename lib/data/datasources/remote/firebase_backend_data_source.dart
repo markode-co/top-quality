@@ -31,7 +31,7 @@ class _UserAcc {
   final String name;
   final String email;
   final String? companyId;
-  final String? companyName;
+  String? companyName;
   final String roleName;
   final bool isHardAdmin;
   final bool isActive;
@@ -123,6 +123,42 @@ class FirebaseBackendDataSource implements BackendDataSource {
         .maybeSingle();
   }
 
+  Future<String?> _loadCompanyNameById(String companyId) async {
+    try {
+      final row = await _supabase
+          .from('companies')
+          .select('name')
+          .eq('id', companyId)
+          .maybeSingle();
+      return row?['name']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, String>> _loadCompanyNamesByIds(
+    Set<String> companyIds,
+  ) async {
+    if (companyIds.isEmpty) return {};
+    try {
+      final rows = await _supabase
+          .from('companies')
+          .select('id,name')
+          .inFilter('id', companyIds.toList());
+      final map = <String, String>{};
+      for (final row in rows) {
+        final id = row['id']?.toString();
+        final name = row['name']?.toString();
+        if (id != null && id.isNotEmpty && name != null && name.isNotEmpty) {
+          map[id] = name;
+        }
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<List<String>> _loadPermissionCodesFromUsersView(String userId) async {
     final List<dynamic> rows = await _supabase
         .from('v_users_with_permissions')
@@ -167,9 +203,18 @@ class FirebaseBackendDataSource implements BackendDataSource {
       // Ensure company info exists for UI (employees table / edit dialog).
       if (rpcRes['company_id'] == null || rpcRes['company_name'] == null) {
         final companyRow = await _loadCompanyFromUsersView(user.id);
+        final companyId =
+            companyRow?['company_id']?.toString() ??
+            rpcRes['company_id']?.toString();
+        var companyName = companyRow?['company_name']?.toString();
+        if ((companyName == null || companyName.isEmpty) &&
+            companyId != null &&
+            companyId.isNotEmpty) {
+          companyName = await _loadCompanyNameById(companyId);
+        }
         rpcRes = Map.of(rpcRes)
-          ..['company_id'] = companyRow?['company_id']
-          ..['company_name'] = companyRow?['company_name'];
+          ..['company_id'] = companyId
+          ..['company_name'] = companyName;
       }
       return _mapUserFromProfile(rpcRes, user);
     }
@@ -236,12 +281,13 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   @override
   Stream<AppUser?> watchSession() =>
-      _supabase.auth.onAuthStateChange.asyncMap((data) async {
-        final session = data.session;
-        final user = session?.user;
-        if (user == null) return null;
-        return _loadProfile(user);
-      });
+      _supabase.auth.onAuthStateChange
+          .map((data) => data.session?.user)
+          .distinct((a, b) => a?.id == b?.id)
+          .asyncExpand((user) {
+            if (user == null) return Stream<AppUser?>.value(null);
+            return _watchProfile(user).map((profile) => profile as AppUser?);
+          });
 
   @override
   Future<AppUser?> getCurrentUser() async {
@@ -352,8 +398,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
         .from('v_users_with_permissions')
         .stream(primaryKey: ['id', 'permission_code']);
 
-    return stream.map((rows) {
-        final Map<String, _UserAcc> acc = {};
+    return stream.asyncMap((rows) async {
+      final Map<String, _UserAcc> acc = {};
       for (final row in rows) {
         final id = row['id'].toString();
         final entry = acc.putIfAbsent(id, () {
@@ -378,15 +424,79 @@ class FirebaseBackendDataSource implements BackendDataSource {
           entry.permissionCodes.add(permCode);
         }
       }
+
+      final missingCompanyIds = <String>{};
+      for (final entry in acc.values) {
+        final companyId = entry.companyId?.trim() ?? '';
+        final companyName = entry.companyName?.trim() ?? '';
+        if (companyId.isNotEmpty && companyName.isEmpty) {
+          missingCompanyIds.add(companyId);
+        }
+      }
+
+      if (missingCompanyIds.isNotEmpty) {
+        final names = await _loadCompanyNamesByIds(missingCompanyIds);
+        for (final entry in acc.values) {
+          final companyId = entry.companyId?.trim() ?? '';
+          if (companyId.isNotEmpty && names.containsKey(companyId)) {
+            entry.companyName = names[companyId];
+          }
+        }
+      }
+
       // ensure hard-admin gets all permissions even if view rows are limited
       for (final entry in acc.values) {
         if (entry.isHardAdmin) {
           entry.permissionCodes.addAll(AppPermission.values.map((e) => e.code));
         }
       }
+
       return acc.values
           .map((e) => e.toAppUser(_defaultPermissionsForRole))
           .toList();
+    });
+  }
+
+  Stream<AppUser> _watchProfile(User user) {
+    final stream = _supabase
+        .from('v_users_with_permissions')
+        .stream(primaryKey: ['id', 'permission_code'])
+        .eq('id', user.id);
+
+    return stream.asyncMap((rows) async {
+      if (rows.isEmpty) {
+        return _fetchProfile(user);
+      }
+
+      final acc = _UserAcc(
+        id: user.id,
+        name: rows.first['name']?.toString() ?? (user.email ?? 'User'),
+        email: rows.first['email']?.toString() ?? (user.email ?? ''),
+        companyId: rows.first['company_id']?.toString(),
+        companyName: rows.first['company_name']?.toString(),
+        roleName: rows.first['role_name']?.toString() ?? 'Order Entry User',
+        isHardAdmin: _isHardAdmin(rows.first['email']?.toString() ?? ''),
+        isActive: rows.first['is_active'] as bool? ?? true,
+        lastActive:
+            DateTime.tryParse(rows.first['last_active']?.toString() ?? ''),
+      );
+
+      for (final row in rows) {
+        final permCode = row['permission_code']?.toString();
+        if (permCode != null && permCode.isNotEmpty) {
+          acc.permissionCodes.add(permCode);
+        }
+      }
+
+      if (acc.companyId != null &&
+          (acc.companyName == null || acc.companyName!.trim().isEmpty)) {
+        final companyName = await _loadCompanyNameById(acc.companyId!);
+        if (companyName != null && companyName.isNotEmpty) {
+          acc.companyName = companyName;
+        }
+      }
+
+      return acc.toAppUser(_defaultPermissionsForRole);
     });
   }
 
@@ -398,31 +508,50 @@ class FirebaseBackendDataSource implements BackendDataSource {
       case UserRole.reviewer:
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
+          AppPermission.usersCreate,
+          AppPermission.usersEdit,
+          AppPermission.usersDelete,
+          AppPermission.usersAssignPermissions,
           AppPermission.productsView,
           AppPermission.inventoryView,
           AppPermission.ordersView,
+          AppPermission.ordersEdit,
+          AppPermission.ordersApprove,
           AppPermission.reportsView,
           AppPermission.activityLogsView,
         };
       case UserRole.orderEntry:
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
           AppPermission.productsView,
           AppPermission.inventoryView,
           AppPermission.ordersView,
+          AppPermission.ordersCreate,
+          AppPermission.ordersEdit,
         };
       case UserRole.shipping:
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
           AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+          AppPermission.ordersShip,
         };
       case UserRole.viewer:
         return {
           AppPermission.dashboardView,
+          AppPermission.notificationsView,
           AppPermission.usersView,
+          AppPermission.productsView,
+          AppPermission.inventoryView,
+          AppPermission.ordersView,
+          AppPermission.reportsView,
         };
     }
   }

@@ -10,13 +10,16 @@ async function main() {
   const env = loadEnvFile(envFile);
 
   const supabaseUrl = env.SUPABASE_URL;
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const adminKey =
+    env.SUPABASE_SECRET_KEY ||
+    env.SECRET_KEY ||
+    env.SUPABASE_SERVICE_ROLE_KEY;
   const anonKey = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY;
   const testUserJwt = env.SUPABASE_TEST_JWT || process.env.SUPABASE_TEST_JWT;
 
-  if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+  if (!supabaseUrl || !adminKey || !anonKey) {
     throw new Error(
-      `Missing SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, or SUPABASE_PUBLISHABLE_KEY in ${envFile}.`,
+      `Missing SUPABASE_URL, SUPABASE_SECRET_KEY, or SUPABASE_PUBLISHABLE_KEY in ${envFile}.`,
     );
   }
 
@@ -47,7 +50,7 @@ async function main() {
     const url = `${restBaseUrl}/${relation}?select=${encodeURIComponent(select)}&limit=1`;
     const result = await request(url, {
       method: "GET",
-      headers: restHeaders(serviceRoleKey),
+      headers: restHeaders(adminKey),
     });
     recordResult(`REST ${relation}`, result, failures);
   }
@@ -134,7 +137,7 @@ async function main() {
     const result = await request(url, {
       method: "POST",
       headers: {
-        ...restHeaders(serviceRoleKey),
+        ...restHeaders(adminKey),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
