@@ -43,6 +43,7 @@ interface RequestBody {
   roleName?: string;
   permissions?: string[];
   isActive?: boolean;
+  companyName?: string;
 }
 
 interface CallerContext {
@@ -111,10 +112,11 @@ async function notifyCompany(
   message: string,
   type: string,
   referenceId?: string,
+  companyIdOverride?: string,
 ) {
   try {
     await (admin as any).rpc("notify_company_users", {
-      p_company_id: caller.companyId,
+      p_company_id: companyIdOverride ?? caller.companyId,
       p_title: title,
       p_message: message,
       p_type: type,
@@ -218,6 +220,7 @@ async function createEmployee(
   const roleName = body.roleName;
 
   const role = await findRole(admin, roleName);
+  const companyId = await ensureCompany(admin, caller, body.companyName);
 
   const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
     email,
@@ -233,7 +236,7 @@ async function createEmployee(
   const userId = authUser.user.id;
 
   const profile = {
-    company_id: caller.companyId,
+    company_id: companyId,
     branch_id: caller.branchId,
     name,
     email,
@@ -284,6 +287,7 @@ async function createEmployee(
     `${name} (${email})`,
     "workflow",
     userId,
+    companyId,
   );
 
   return jsonResponse({ status: "ok", employeeId: userId });
@@ -300,12 +304,15 @@ async function updateEmployee(
   if (!body.employeeId) throw new HttpError(400, "employeeId required");
 
   const role = body.roleName ? await findRole(admin, body.roleName) : null;
+  const companyId = await ensureCompany(admin, caller, body.companyName);
 
+  // Optionally update the company name for the caller's company.
   const { error } = await (admin.from("users") as any).update({
     name: body.name,
     email: body.email,
     role_id: role?.id,
     is_active: body.isActive,
+    company_id: companyId,
   }).eq("id", body.employeeId);
 
   if (error) throw new HttpError(400, error.message);
@@ -332,6 +339,7 @@ async function updateEmployee(
     `${body.name ?? body.employeeId} (${body.email ?? ""})`.trim(),
     "workflow",
     body.employeeId,
+    companyId,
   );
 
   return jsonResponse({ status: "ok" });
@@ -416,6 +424,32 @@ async function findRole(admin: SupabaseClient, name: string): Promise<RoleRow> {
   if (!role) throw new HttpError(400, "Invalid role");
 
   return role;
+}
+
+async function ensureCompany(
+  admin: SupabaseClient,
+  caller: CallerContext,
+  companyName?: string,
+): Promise<string> {
+  const trimmed = companyName?.trim();
+  if (!trimmed) return caller.companyId;
+
+  const { data: found, error } = await (admin.from("companies") as any)
+    .select("id, name")
+    .ilike("name", trimmed)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new HttpError(400, error.message);
+  if (found?.id) return found.id as string;
+
+  const { data: inserted, error: insertErr } = await (admin.from("companies") as any)
+    .insert({ name: trimmed, is_active: true })
+    .select("id")
+    .maybeSingle();
+  if (insertErr || !inserted?.id) {
+    throw new HttpError(400, insertErr?.message ?? "Failed to create company");
+  }
+  return inserted.id as string;
 }
 
 /* ================= PERMISSION ================= */

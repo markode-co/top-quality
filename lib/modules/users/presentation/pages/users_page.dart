@@ -95,10 +95,10 @@ class UsersPage extends ConsumerWidget {
     final nameController = TextEditingController(text: user?.name ?? '');
     final emailController = TextEditingController(text: user?.email ?? '');
     final currentCompanyName = ref.read(currentUserProvider)?.companyName;
-    final derivedCompanyName = (user?.companyName ?? currentCompanyName)?.trim();
-    final companyLocked = derivedCompanyName != null && derivedCompanyName.isNotEmpty;
+    final initialCompanyName =
+        (user?.companyName ?? currentCompanyName ?? '').trim();
     final companyController = TextEditingController(
-      text: derivedCompanyName ?? '',
+      text: initialCompanyName,
     );
     final passwordController = TextEditingController();
     UserRole selectedRole = user?.role ?? UserRole.orderEntry;
@@ -143,21 +143,15 @@ class UsersPage extends ConsumerWidget {
                   TextField(
                     controller: companyController,
                     keyboardType: TextInputType.text,
-                    readOnly: companyLocked,
                     decoration: InputDecoration(
                       labelText: context.t(
                         en: 'Company name',
                         ar: 'اسم الشركة',
                       ),
-                      helperText: companyLocked
-                          ? context.t(
-                              en: 'Company is derived from your account.',
-                              ar: 'اسم الشركة يتم أخذه تلقائيًا من حسابك.',
-                            )
-                          : context.t(
-                              en: 'Optional (can be set later).',
-                              ar: 'اختياري (يمكن ضبطه لاحقًا).',
-                            ),
+                      helperText: context.t(
+                        en: 'Optional. Leave blank to keep current value.',
+                        ar: 'اختياري، اتركه فارغًا للاحتفاظ بالقيمة الحالية.',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

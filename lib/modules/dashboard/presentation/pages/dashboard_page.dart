@@ -190,12 +190,47 @@ class _StatusChart extends StatelessWidget {
 
   final Map<OrderStatus, int> data;
 
+  Color _statusColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.entered:
+        return const Color(0xFF2C82C9);
+      case OrderStatus.checked:
+        return const Color(0xFF6C63FF);
+      case OrderStatus.approved:
+        return const Color(0xFF17A2B8);
+      case OrderStatus.shipped:
+        return const Color(0xFFFFC107);
+      case OrderStatus.completed:
+        return const Color(0xFF2BB673);
+      case OrderStatus.returned:
+        return const Color(0xFFE74C3C);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final statuses = OrderStatus.values;
+    final maxY = (data.values.isEmpty ? 0 : data.values.reduce((a, b) => a > b ? a : b)).toDouble();
+
+    if (maxY == 0) {
+      return const Center(
+        child: Text('لا توجد بيانات للعرض الآن'),
+      );
+    }
+
     return BarChart(
       BarChartData(
-        gridData: const FlGridData(show: false),
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY * 1.25,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (maxY / 4).clamp(1, double.infinity),
+            getDrawingHorizontalLine: (value) => FlLine(
+            color: Colors.grey.withValues(alpha: 0.15),
+            strokeWidth: 1,
+          ),
+        ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
           rightTitles: const AxisTitles(
@@ -204,8 +239,16 @@ class _StatusChart extends StatelessWidget {
           topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          leftTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 36,
+              interval: (maxY / 4).clamp(1, double.infinity),
+              getTitlesWidget: (value, meta) => Text(
+                value % 1 == 0 ? value.toInt().toString() : '',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -217,23 +260,54 @@ class _StatusChart extends StatelessWidget {
                 }
                 final status = statuses[index];
                 return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(context.orderStatusShort(status)),
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    context.orderStatusShort(status),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 );
               },
             ),
           ),
         ),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => Colors.black87,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final status = statuses[group.x.toInt()];
+              final count = data[status] ?? 0;
+              return BarTooltipItem(
+                '${context.orderStatusLabel(status)}\n$count',
+                const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              );
+            },
+          ),
+        ),
         barGroups: List.generate(statuses.length, (index) {
           final status = statuses[index];
+          final count = (data[status] ?? 0).toDouble();
           return BarChartGroupData(
             x: index,
             barRods: [
               BarChartRodData(
-                toY: (data[status] ?? 0).toDouble(),
-                width: 24,
-                color: const Color(0xFF0C6B58),
-                borderRadius: BorderRadius.circular(8),
+                toY: count,
+                width: 26,
+                borderRadius: BorderRadius.circular(10),
+                color: _statusColor(status),
+                backDrawRodData: BackgroundBarChartRodData(
+                  show: true,
+                  toY: maxY,
+                  color: Colors.grey.withValues(alpha: 0.08),
+                ),
+                gradient: LinearGradient(
+                  colors: [
+                    _statusColor(status),
+                    _statusColor(status).withValues(alpha: 0.75),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ],
           );
