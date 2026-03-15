@@ -57,8 +57,17 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
         ),
       ),
       body: productsValue.when(
-        data: (products) => ResponsiveListView(
-          children: [
+        data: (products) {
+          Future<void> refreshCreateOrder() async {
+            ref.invalidate(productsProvider);
+            try {
+              await ref.read(productsProvider.future);
+            } catch (_) {}
+          }
+
+          return ResponsiveListView(
+            onRefresh: refreshCreateOrder,
+            children: [
             Form(
               key: _formKey,
               child: Column(
@@ -142,10 +151,11 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
               ),
             ),
           ],
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text(error.toString())),
-      ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text(error.toString())),
+    ),
     );
   }
 

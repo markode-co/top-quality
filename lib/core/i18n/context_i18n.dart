@@ -33,12 +33,12 @@ extension ContextI18n on BuildContext {
 
   String orderStatusShort(OrderStatus status) {
     return switch (status) {
-      OrderStatus.entered => t(en: 'ENT', ar: 'إدخ'),
-      OrderStatus.checked => t(en: 'CHK', ar: 'مراج'),
-      OrderStatus.approved => t(en: 'APR', ar: 'اعتم'),
+      OrderStatus.entered => t(en: 'ENT', ar: 'إدخال'),
+      OrderStatus.checked => t(en: 'CHK', ar: 'مراجعة'),
+      OrderStatus.approved => t(en: 'APR', ar: 'اعتماد'),
       OrderStatus.shipped => t(en: 'SHP', ar: 'شحن'),
       OrderStatus.completed => t(en: 'CMP', ar: 'تم'),
-      OrderStatus.returned => t(en: 'RET', ar: 'رجع'),
+      OrderStatus.returned => t(en: 'RET', ar: 'رجوع'),
     };
   }
 }

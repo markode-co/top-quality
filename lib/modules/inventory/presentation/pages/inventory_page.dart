@@ -24,6 +24,15 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     super.dispose();
   }
 
+  Future<void> _refreshProducts() async {
+    ref.invalidate(productsProvider);
+    try {
+      await ref.read(productsProvider.future);
+    } catch (_) {
+      // ignore errors, the UI handles the error state.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsValue = ref.watch(productsProvider);
@@ -50,6 +59,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         }).toList();
 
         return ResponsiveListView(
+          onRefresh: _refreshProducts,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {

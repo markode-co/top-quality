@@ -26,6 +26,15 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
 
   @override
   Widget build(BuildContext context) {
+    Future<void> refreshActivityLogs() async {
+      ref.invalidate(activityLogsProvider);
+      try {
+        await ref.read(activityLogsProvider.future);
+      } catch (_) {
+        // ignore errors; UI handles states.
+      }
+    }
+
     final logsValue = ref.watch(activityLogsProvider);
     return logsValue.when(
       data: (logs) {
@@ -43,6 +52,7 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
         final filtered = _applyFilters(logs);
 
         return ResponsiveListView(
+          onRefresh: refreshActivityLogs,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
@@ -148,11 +158,14 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                             label: Text(context.t(en: 'Date', ar: 'التاريخ')),
                           ),
                           DataColumn(
-                            label: Text(context.t(en: 'Activity', ar: 'النشاطات')),
+                            label: Text(
+                              context.t(en: 'Activity', ar: 'النشاطات'),
+                            ),
                           ),
                         ],
                         rows: [
-                          for (final log in filtered) _activityRow(context, log),
+                          for (final log in filtered)
+                            _activityRow(context, log),
                         ],
                       ),
                     ),
@@ -268,9 +281,12 @@ DataRow _activityRow(BuildContext context, ActivityLog log) {
   final email = (log.actorEmail ?? '').trim();
   final displayName = name.isNotEmpty
       ? name
-      : (email.isNotEmpty ? email : (log.actorId.isNotEmpty ? log.actorId : '-'));
-  final displayEmail =
-      email.isNotEmpty ? email : (log.actorId.isNotEmpty ? log.actorId : '-');
+      : (email.isNotEmpty
+            ? email
+            : (log.actorId.isNotEmpty ? log.actorId : '-'));
+  final displayEmail = email.isNotEmpty
+      ? email
+      : (log.actorId.isNotEmpty ? log.actorId : '-');
   final task = _actionLabel(context, log.action);
   final activity = _entitySummary(context, log);
 
@@ -441,7 +457,15 @@ String _actionLabel(BuildContext context, String action) {
   return context.t(en: mapEn[action] ?? action, ar: mapAr[action] ?? action);
 }
 
-enum _LogCategory { all, orders, products, inventory, employees, users, general }
+enum _LogCategory {
+  all,
+  orders,
+  products,
+  inventory,
+  employees,
+  users,
+  general,
+}
 
 class _CategoryChip {
   const _CategoryChip({

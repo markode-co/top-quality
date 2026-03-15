@@ -16,8 +16,18 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardValue = ref.watch(dashboardProvider);
 
+    Future<void> refreshDashboard() async {
+      ref.invalidate(dashboardProvider);
+      try {
+        await ref.read(dashboardProvider.future);
+      } catch (_) {
+        // ignore errors; UI shows failures.
+      }
+    }
+
     return dashboardValue.when(
       data: (snapshot) => ResponsiveListView(
+        onRefresh: refreshDashboard,
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
@@ -210,23 +220,23 @@ class _StatusChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statuses = OrderStatus.values;
-    final maxY = (data.values.isEmpty ? 0 : data.values.reduce((a, b) => a > b ? a : b)).toDouble();
+    final maxY =
+        (data.values.isEmpty ? 0 : data.values.reduce((a, b) => a > b ? a : b))
+            .toDouble();
 
     if (maxY == 0) {
-      return const Center(
-        child: Text('لا توجد بيانات للعرض الآن'),
-      );
+      return const Center(child: Text('لا توجد بيانات للعرض الآن'));
     }
 
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: maxY * 1.25,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (maxY / 4).clamp(1, double.infinity),
-            getDrawingHorizontalLine: (value) => FlLine(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (maxY / 4).clamp(1, double.infinity),
+          getDrawingHorizontalLine: (value) => FlLine(
             color: Colors.grey.withValues(alpha: 0.15),
             strokeWidth: 1,
           ),
@@ -253,6 +263,7 @@ class _StatusChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
+              reservedSize: 56,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= statuses.length) {
@@ -262,8 +273,14 @@ class _StatusChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    context.orderStatusShort(status),
-                    style: Theme.of(context).textTheme.bodySmall,
+                    context.orderStatusLabel(status),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontSize: 12),
                   ),
                 );
               },
@@ -279,7 +296,10 @@ class _StatusChart extends StatelessWidget {
               final count = data[status] ?? 0;
               return BarTooltipItem(
                 '${context.orderStatusLabel(status)}\n$count',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               );
             },
           ),

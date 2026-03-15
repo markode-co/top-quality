@@ -40,9 +40,17 @@ class UsersPage extends ConsumerWidget {
 
     final usersValue = ref.watch(usersProvider);
 
+    Future<void> refreshUsers() async {
+      ref.invalidate(usersProvider);
+      try {
+        await ref.read(usersProvider.future);
+      } catch (_) {}
+    }
+
     return usersValue.when(
       data: (users) {
         return ResponsiveListView(
+          onRefresh: refreshUsers,
           children: [
             if (canCreate)
               Align(
@@ -95,11 +103,9 @@ class UsersPage extends ConsumerWidget {
     final nameController = TextEditingController(text: user?.name ?? '');
     final emailController = TextEditingController(text: user?.email ?? '');
     final currentCompanyName = ref.read(currentUserProvider)?.companyName;
-    final initialCompanyName =
-        (user?.companyName ?? currentCompanyName ?? '').trim();
-    final companyController = TextEditingController(
-      text: initialCompanyName,
-    );
+    final initialCompanyName = (user?.companyName ?? currentCompanyName ?? '')
+        .trim();
+    final companyController = TextEditingController(text: initialCompanyName);
     final passwordController = TextEditingController();
     UserRole selectedRole = user?.role ?? UserRole.orderEntry;
     final selectedPermissions = <AppPermission>{...user?.permissions ?? {}};
@@ -143,14 +149,15 @@ class UsersPage extends ConsumerWidget {
                   TextField(
                     controller: companyController,
                     keyboardType: TextInputType.text,
+                    enabled: false,
                     decoration: InputDecoration(
                       labelText: context.t(
                         en: 'Company name',
                         ar: 'اسم الشركة',
                       ),
                       helperText: context.t(
-                        en: 'Optional. Leave blank to keep current value.',
-                        ar: 'اختياري، اتركه فارغًا للاحتفاظ بالقيمة الحالية.',
+                        en: 'Company is fixed to your organization.',
+                        ar: 'اسم الشركة ثابت للشركة الحالية.',
                       ),
                     ),
                   ),
@@ -244,9 +251,7 @@ class UsersPage extends ConsumerWidget {
       password: passwordController.text.trim().isEmpty
           ? null
           : passwordController.text.trim(),
-      companyName: companyController.text.trim().isEmpty
-          ? null
-          : companyController.text.trim(),
+      companyName: null, // force to current caller company on server
       role: selectedRole,
       permissions: selectedPermissions,
       isActive: user?.isActive ?? true,
@@ -276,85 +281,83 @@ class UsersPage extends ConsumerWidget {
           : context.t(en: 'Employee updated.', ar: 'تم تعديل الموظف.'),
     );
   }
-Future<void> _toggleActive(
-  BuildContext context,
-  WidgetRef ref,
-  AppUser user,
-) async {
-  final nextActive = !user.isActive;
-  await ref
-      .read(operationsControllerProvider.notifier)
-      .deactivateEmployee(
-        employeeId: user.id,
-        isActive: nextActive,
-      );
 
-  if (!context.mounted) return;
+  Future<void> _toggleActive(
+    BuildContext context,
+    WidgetRef ref,
+    AppUser user,
+  ) async {
+    final nextActive = !user.isActive;
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .deactivateEmployee(employeeId: user.id, isActive: nextActive);
 
-  ref.invalidate(usersProvider);
+    if (!context.mounted) return;
 
-  _showResult(
-    context,
-    ref,
-    successMessage: nextActive
-        ? context.t(en: 'Employee activated.', ar: 'تم تنشيط الموظف.')
-        : context.t(en: 'Employee deactivated.', ar: 'تم تعطيل الموظف.'),
-  );
-}
+    ref.invalidate(usersProvider);
 
-Future<void> _deleteUser(
-  BuildContext context,
-  WidgetRef ref,
-  String userId,
-) async {
-  await ref
-      .read(operationsControllerProvider.notifier)
-      .deleteEmployee(userId);
+    _showResult(
+      context,
+      ref,
+      successMessage: nextActive
+          ? context.t(en: 'Employee activated.', ar: 'تم تنشيط الموظف.')
+          : context.t(en: 'Employee deactivated.', ar: 'تم تعطيل الموظف.'),
+    );
+  }
 
-  if (!context.mounted) return;
+  Future<void> _deleteUser(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+  ) async {
+    await ref
+        .read(operationsControllerProvider.notifier)
+        .deleteEmployee(userId);
 
-  ref.invalidate(usersProvider);
+    if (!context.mounted) return;
 
-  _showResult(
-    context,
-    ref,
-    successMessage: context.t(en: 'Employee deleted.', ar: 'تم حذف الموظف.'),
-  );
-}
+    ref.invalidate(usersProvider);
 
-void _showResult(
-  BuildContext context,
-  WidgetRef ref, {
-  required String successMessage,
-}) {
-  final state = ref.read(operationsControllerProvider);
+    _showResult(
+      context,
+      ref,
+      successMessage: context.t(en: 'Employee deleted.', ar: 'تم حذف الموظف.'),
+    );
+  }
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        state.hasError
-            ? _localizeEmployeeError(context, state.error.toString())
-            : successMessage,
+  void _showResult(
+    BuildContext context,
+    WidgetRef ref, {
+    required String successMessage,
+  }) {
+    final state = ref.read(operationsControllerProvider);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          state.hasError
+              ? _localizeEmployeeError(context, state.error.toString())
+              : successMessage,
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-String _localizeEmployeeError(BuildContext context, String message) {
-  if (message == 'No changes detected') {
-    return context.t(
-      en: 'No changes detected. Update a field or permissions and try again.',
-      ar: 'لم يتم اكتشاف أي تغييرات. عدّل قيمة أو صلاحيات ثم حاول مرة أخرى.',
-    );
+  String _localizeEmployeeError(BuildContext context, String message) {
+    if (message == 'No changes detected') {
+      return context.t(
+        en: 'No changes detected. Update a field or permissions and try again.',
+        ar: 'لم يتم اكتشاف أي تغييرات. عدّل قيمة أو صلاحيات ثم حاول مرة أخرى.',
+      );
+    }
+    if (message == 'employee_op_failed') {
+      return context.t(
+        en: 'Employee update failed. Please try again.',
+        ar: 'فشل تعديل الموظف. يرجى المحاولة مرة أخرى.',
+      );
+    }
+    return message;
   }
-  if (message == 'employee_op_failed') {
-    return context.t(
-      en: 'Employee update failed. Please try again.',
-      ar: 'فشل تعديل الموظف. يرجى المحاولة مرة أخرى.',
-    );
-  }
-  return message;
-}
 }
 
 class _UserCard extends StatelessWidget {
@@ -390,9 +393,7 @@ class _UserCard extends StatelessWidget {
         IconButton(
           onPressed: isBusy ? null : onToggleActive,
           icon: Icon(
-            user.isActive
-                ? Icons.person_off_outlined
-                : Icons.person_outline,
+            user.isActive ? Icons.person_off_outlined : Icons.person_outline,
           ),
           tooltip: user.isActive
               ? context.t(en: 'Deactivate', ar: 'تعطيل')
@@ -530,11 +531,7 @@ class _UserCard extends StatelessWidget {
                       children: [
                         meta,
                         if (actions.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: actions,
-                          ),
+                          Wrap(spacing: 8, runSpacing: 4, children: actions),
                       ],
                     ),
                   ),
@@ -550,11 +547,7 @@ class _UserCard extends StatelessWidget {
                 meta,
                 if (actions.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: actions,
-                  ),
+                  Wrap(spacing: 8, runSpacing: 4, children: actions),
                 ],
               ],
             );
@@ -564,4 +557,3 @@ class _UserCard extends StatelessWidget {
     );
   }
 }
-

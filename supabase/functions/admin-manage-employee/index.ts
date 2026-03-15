@@ -236,6 +236,7 @@ async function logActivity(
   action: string,
   employeeId?: string,
   metadata?: Record<string, unknown>,
+  companyIdOverride?: string | null,
 ) {
   try {
     const meta = {
@@ -250,7 +251,7 @@ async function logActivity(
       entity_type: "employee",
       entity_id: employeeId ?? null,
       metadata: meta,
-      company_id: caller.companyId,
+      company_id: companyIdOverride ?? caller.companyId,
     };
     await admin.from("activity_logs").insert(logEntry);
   } catch (e) {
@@ -558,9 +559,8 @@ async function updateEmployee(
   }
 
   let targetCompanyId = existingUser.company_id;
-  if (companyName) {
+  if (companyName !== undefined) {
     targetCompanyId = await ensureCompany(admin, caller, companyName);
-    // Persist selected company on the employee row so company filters behave correctly.
   }
   if (!targetCompanyId) {
     throw new HttpError(400, "Employee company missing");
@@ -786,6 +786,24 @@ async function updateEmployee(
     updated_at: updatedAt,
   });
 
+  const companyChanged =
+    (existingUser.company_id ?? null) !== (targetCompanyId ?? null);
+  if (companyChanged) {
+    // Log in the source company context.
+    await logActivity(
+      admin,
+      caller,
+      "admin-manage-employee",
+      employeeId,
+      {
+        action: "transfer",
+        from_company_id: existingUser.company_id ?? null,
+        to_company_id: targetCompanyId,
+      },
+      existingUser.company_id,
+    );
+  }
+
   await notifyCompany(
     admin,
     caller,
@@ -793,8 +811,19 @@ async function updateEmployee(
     `${targetName ?? employeeId} (${targetEmail ?? ""})`.trim(),
     "workflow",
     employeeId,
-    caller.companyId,
+    targetCompanyId,
   );
+  if (companyChanged && existingUser.company_id) {
+    await notifyCompany(
+      admin,
+      caller,
+      "تم نقل الموظف من الشركة",
+      `${targetName ?? employeeId} (${targetEmail ?? ""})`.trim(),
+      "workflow",
+      employeeId,
+      existingUser.company_id ?? undefined,
+    );
+  }
 
   return jsonResponse({
     status: "ok",

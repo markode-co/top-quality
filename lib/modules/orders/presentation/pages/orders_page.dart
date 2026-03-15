@@ -31,6 +31,15 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     super.dispose();
   }
 
+  Future<void> _refreshOrders() async {
+    ref.invalidate(ordersProvider);
+    try {
+      await ref.read(ordersProvider.future);
+    } catch (_) {
+      // ignore errors, the UI handles the error state.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ordersValue = ref.watch(ordersProvider);
@@ -41,6 +50,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
       data: (orders) {
         final filtered = _applyFilters(orders);
         return ResponsiveListView(
+          onRefresh: _refreshOrders,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
@@ -61,9 +71,7 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                     ? FilledButton.icon(
                         onPressed: widget.onCreateOrder,
                         icon: const Icon(Icons.add),
-                        label: Text(
-                          context.t(en: 'New Order', ar: 'طلب جديد'),
-                        ),
+                        label: Text(context.t(en: 'New Order', ar: 'طلب جديد')),
                       )
                     : null;
 

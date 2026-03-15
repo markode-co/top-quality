@@ -11,8 +11,18 @@ class ReportsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final reportsValue = ref.watch(employeeReportsProvider);
 
+    Future<void> refreshReports() async {
+      ref.invalidate(employeeReportsProvider);
+      try {
+        await ref.read(employeeReportsProvider.future);
+      } catch (_) {
+        // ignore errors; UI handles states.
+      }
+    }
+
     return reportsValue.when(
       data: (reports) => ResponsiveListView(
+        onRefresh: refreshReports,
         children: [
           SectionPanel(
             title: context.t(en: 'Employee Reports', ar: 'تقارير الموظفين'),

@@ -43,19 +43,18 @@ class StatCard extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             Text(
               subtitle,
               softWrap: true,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.88),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.88),
                 height: 1.3,
                 fontWeight: FontWeight.w600,
               ),
@@ -203,11 +202,13 @@ class ResponsiveListView extends StatelessWidget {
     required this.children,
     this.maxWidth,
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
+    this.onRefresh,
   });
 
   final List<Widget> children;
   final double? maxWidth;
   final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +216,8 @@ class ResponsiveListView extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final padding = AppBreakpoints.pagePadding(width);
-        final contentMaxWidth = maxWidth ?? AppBreakpoints.contentMaxWidth(width);
+        final contentMaxWidth =
+            maxWidth ?? AppBreakpoints.contentMaxWidth(width);
 
         // Subtle typography scaling for very small / very large viewports.
         final fontFactor = width < 420
@@ -226,7 +228,7 @@ class ResponsiveListView extends StatelessWidget {
           textTheme: baseTheme.textTheme.apply(fontSizeFactor: fontFactor),
         );
 
-        return Theme(
+        final listView = Theme(
           data: theme,
           child: Align(
             alignment: Alignment.topCenter,
@@ -240,6 +242,12 @@ class ResponsiveListView extends StatelessWidget {
             ),
           ),
         );
+
+        if (onRefresh != null) {
+          return RefreshIndicator(onRefresh: onRefresh!, child: listView);
+        }
+
+        return listView;
       },
     );
   }

@@ -18,9 +18,7 @@ class OrderDetailPage extends ConsumerWidget {
     final detail = ref.watch(orderDetailProvider(orderId));
 
     if (detail.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final order = detail.value ?? ref.watch(orderByIdProvider(orderId));
@@ -43,9 +41,18 @@ class OrderDetailPage extends ConsumerWidget {
     final canDelete = user.hasPermission(AppPermission.ordersDelete);
     final canOverride = user.hasPermission(AppPermission.ordersOverride);
 
+    Future<void> refreshOrderDetail() async {
+      ref.invalidate(orderDetailProvider(orderId));
+      ref.invalidate(orderByIdProvider(orderId));
+      try {
+        await ref.read(orderDetailProvider(orderId).future);
+      } catch (_) {}
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text('طلب رقم ${order.orderNo}')),
       body: ResponsiveListView(
+        onRefresh: refreshOrderDetail,
         children: [
           SectionPanel(
             title: context.t(en: 'Overview', ar: 'نظرة عامة'),

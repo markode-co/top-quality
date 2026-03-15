@@ -408,7 +408,6 @@ class FirebaseBackendDataSource implements BackendDataSource {
   Stream<List<AppNotification>> watchNotifications(String userId) => _supabase
       .from('notifications')
       .stream(primaryKey: ['id'])
-      .eq('user_id', userId)
       .order('created_at', ascending: false)
       .map(
         (rows) => rows.map((row) => RemoteMapper.notification(row)).toList(),
@@ -516,11 +515,15 @@ class FirebaseBackendDataSource implements BackendDataSource {
         final email = row['email']?.toString() ?? '';
         final roleId = row['role_id']?.toString();
         final companyId = row['company_id']?.toString();
-        final roleName = roleNameById[roleId ?? ''] ?? '';
+        var roleName = roleNameById[roleId ?? ''] ?? '';
 
+        // If the role id exists but we failed to load its name (data drift), fall
+        // back to a safe default instead of breaking the screen.
         if (roleId != null &&
             roleId.isNotEmpty &&
-            roleNameById[roleId] == null) {}
+            roleNameById[roleId] == null) {
+          roleName = UserRole.orderEntry.label;
+        }
 
         final isHardAdmin = _isHardAdmin(email);
 
@@ -546,7 +549,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
             name: row['name']?.toString() ?? 'User',
             email: email,
             companyId: companyId,
-            companyName: companyNamesById[companyId ?? ''],
+            companyName: companyNamesById[companyId ?? ''] ?? '',
             roleId: roleId ?? '',
             role: isHardAdmin
                 ? UserRole.admin
@@ -920,10 +923,26 @@ class FirebaseBackendDataSource implements BackendDataSource {
   Future<void> upsertProduct({
     required AppUser actor,
     required ProductDraft product,
-  }) {
-    final companyId = product.companyId ?? actor.companyId;
-    return _callRpc('upsert_product', {
-      'p_product_id': product.id,
+  }) async {
+    final companyId = actor.companyId;
+    if (companyId == null || companyId.isEmpty) {
+      throw AppException('company_required');
+    }
+
+    final productId = product.id;
+    if (productId != null && productId.isNotEmpty) {
+      final existing = await _supabase
+          .from('products')
+          .select('company_id')
+          .eq('id', productId)
+          .maybeSingle();
+      final existingCompanyId = existing?['company_id']?.toString();
+      if (existingCompanyId != null && existingCompanyId != companyId) {
+        throw AppException('product_company_invalid');
+      }
+    }
+
+    final payload = {
       'p_name': product.name,
       'p_sku': product.sku,
       'p_category': product.category,
@@ -931,8 +950,16 @@ class FirebaseBackendDataSource implements BackendDataSource {
       'p_sale_price': product.salePrice,
       'p_stock': product.stock,
       'p_min_stock': product.minStockLevel,
-      'p_company_id': companyId,
-    }, failMessage: 'product_op_failed');
+      'p_product_id': (productId == null || productId.isEmpty)
+          ? null
+          : productId,
+    };
+
+    return _callRpc(
+      'upsert_product',
+      payload,
+      failMessage: 'product_op_failed',
+    );
   }
 
   @override
@@ -1102,7 +1129,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
         expiresAt * 1000,
         isUtc: true,
       ).toLocal();
-      if (expiry.isBefore(DateTime.now().add(const Duration(seconds: 30)))) {
+
+      if (expiry.isBefore(DateTime.now().add(const Duration(minutes: 30)))) {
         final refreshed = await _supabase.auth.refreshSession();
         token = refreshed.session?.accessToken ?? token;
       }

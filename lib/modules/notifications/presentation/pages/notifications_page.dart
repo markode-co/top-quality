@@ -27,10 +27,22 @@ class NotificationsPage extends ConsumerWidget {
         }
 
         return ResponsiveListView(
+          onRefresh: () async {
+            ref.invalidate(notificationsProvider);
+            try {
+              await ref.read(notificationsProvider.future);
+            } catch (_) {
+              // ignore; state will show error or no-data.
+            }
+          },
           children: notifications.map((notification) {
             return Card(
               child: ListTile(
-                title: Text(notification.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                title: Text(
+                  notification.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 subtitle: Text(
                   '${notification.message}\n${AppFormatters.shortDateTime(notification.createdAt)}',
                   maxLines: 3,
