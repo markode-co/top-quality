@@ -8,6 +8,7 @@ class ProductDraft {
     required this.salePrice,
     required this.stock,
     required this.minStockLevel,
+    this.companyId,
   });
 
   final String? id;
@@ -18,4 +19,5 @@ class ProductDraft {
   final double salePrice;
   final int stock;
   final int minStockLevel;
+  final String? companyId;
 }

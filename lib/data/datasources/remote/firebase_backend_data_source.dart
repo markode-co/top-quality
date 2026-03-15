@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/constants/app_constants.dart';
 import 'package:top_quality/core/errors/app_exception.dart';
@@ -227,23 +229,24 @@ class FirebaseBackendDataSource implements BackendDataSource {
         )
         .eq('id', user.id);
 
-    final List<Map<String, dynamic>> typedRows =
-        viewRows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final List<Map<String, dynamic>> typedRows = viewRows
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
     final profileRow = typedRows.isEmpty ? null : typedRows.first;
-    final roleName = profileRow?['role_name']?.toString() ?? 'Order Entry User';
-    final perms =
-        typedRows
-            .map((r) => r['permission_code']?.toString())
-            .whereType<String>()
-            .where((c) => c.isNotEmpty && c != 'none')
-            .map(AppPermission.fromCode)
-            .whereType<AppPermission>()
-            .toSet();
+    final roleNameRaw = profileRow?['role_name']?.toString().trim();
+    final roleName = (roleNameRaw != null && roleNameRaw.isNotEmpty)
+        ? roleNameRaw
+        : 'Order Entry User';
+    final perms = typedRows
+        .map((r) => r['permission_code']?.toString())
+        .whereType<String>()
+        .where((c) => c.isNotEmpty && c != 'none')
+        .map(AppPermission.fromCode)
+        .whereType<AppPermission>()
+        .toSet();
 
-    final DateTime? parsedCreatedAt = DateTime.tryParse(
-      user.createdAt,
-    );
+    final DateTime? parsedCreatedAt = DateTime.tryParse(user.createdAt);
     final lastActiveValue = profileRow?['last_active'];
     final DateTime? parsedLastActive = lastActiveValue != null
         ? DateTime.tryParse(lastActiveValue.toString())
@@ -280,14 +283,36 @@ class FirebaseBackendDataSource implements BackendDataSource {
   }
 
   @override
-  Stream<AppUser?> watchSession() =>
-      _supabase.auth.onAuthStateChange
-          .map((data) => data.session?.user)
-          .distinct((a, b) => a?.id == b?.id)
-          .asyncExpand((user) {
-            if (user == null) return Stream<AppUser?>.value(null);
-            return _watchProfile(user).map((profile) => profile as AppUser?);
-          });
+  Stream<AppUser?> watchSession() {
+    final controller = StreamController<AppUser?>.broadcast();
+    StreamSubscription<AuthState>? authSub;
+    StreamSubscription<AppUser>? profileSub;
+
+    controller.onListen = () {
+      authSub = _supabase.auth.onAuthStateChange.listen((data) {
+        final user = data.session?.user;
+        profileSub?.cancel();
+        profileSub = null;
+
+        if (user == null) {
+          _profileCache.clear();
+          controller.add(null);
+          return;
+        }
+
+        profileSub = _watchProfile(
+          user,
+        ).listen(controller.add, onError: controller.addError);
+      }, onError: controller.addError);
+    };
+
+    controller.onCancel = () async {
+      await profileSub?.cancel();
+      await authSub?.cancel();
+    };
+
+    return controller.stream;
+  }
 
   @override
   Future<AppUser?> getCurrentUser() async {
@@ -364,7 +389,8 @@ class FirebaseBackendDataSource implements BackendDataSource {
           final map = Map<String, dynamic>.from(row);
           map['order_date'] = row['created_at'];
           map['order_items'] =
-              itemsByOrder[map['id']?.toString()] ?? const <Map<String, dynamic>>[];
+              itemsByOrder[map['id']?.toString()] ??
+              const <Map<String, dynamic>>[];
           map['order_status_history'] =
               historyByOrder[map['id']?.toString()] ??
               const <Map<String, dynamic>>[];
@@ -379,82 +405,180 @@ class FirebaseBackendDataSource implements BackendDataSource {
       .map((rows) => rows.map(_mapProductRow).toList());
 
   @override
-  Stream<List<AppNotification>> watchNotifications(String userId) =>
-      _supabase
-          .from('notifications')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .map(
-            (rows) => rows
-                .map((row) => RemoteMapper.notification(row))
-                .toList(),
-          );
+  Stream<List<AppNotification>> watchNotifications(String userId) => _supabase
+      .from('notifications')
+      .stream(primaryKey: ['id'])
+      .eq('user_id', userId)
+      .order('created_at', ascending: false)
+      .map(
+        (rows) => rows.map((row) => RemoteMapper.notification(row)).toList(),
+      );
 
   @override
   Stream<List<AppUser>> watchUsers() {
-    // Stream aggregated permissions from view v_users_with_permissions
-    final stream = _supabase
-        .from('v_users_with_permissions')
-        .stream(primaryKey: ['id', 'permission_code']);
+    final stream = _supabase.from('users').stream(primaryKey: ['id']);
 
     return stream.asyncMap((rows) async {
-      final Map<String, _UserAcc> acc = {};
-      for (final row in rows) {
-        final id = row['id'].toString();
-        final entry = acc.putIfAbsent(id, () {
-          final roleName = (row['role_name'] ?? '').toString();
-          final email = row['email']?.toString() ?? '';
-          final companyId = row['company_id']?.toString();
-          final companyName = row['company_name']?.toString();
-          return _UserAcc(
-            id: id,
-            name: row['name']?.toString() ?? 'User',
-            email: email,
-            companyId: companyId,
-            companyName: companyName,
-            roleName: roleName,
-            isHardAdmin: _isHardAdmin(email),
-            isActive: row['is_active'] as bool? ?? true,
-            lastActive: DateTime.tryParse(row['last_active']?.toString() ?? ''),
-          );
-        });
-        final permCode = row['permission_code']?.toString();
-        if (permCode != null && permCode.isNotEmpty) {
-          entry.permissionCodes.add(permCode);
+      if (rows.isEmpty) return <AppUser>[];
+      final scopedCompanyId = await _currentUserCompanyId();
+      final scopedRows = scopedCompanyId == null
+          ? rows
+          : rows
+                .where(
+                  (row) => row['company_id']?.toString() == scopedCompanyId,
+                )
+                .toList();
+      if (scopedRows.isEmpty) return <AppUser>[];
+
+      final userIds = <String>{};
+      final roleIds = <String>{};
+      final companyIds = <String>{};
+
+      for (final row in scopedRows) {
+        final id = row['id']?.toString();
+        if (id != null && id.isNotEmpty) userIds.add(id);
+
+        final roleId = row['role_id']?.toString();
+        if (roleId != null && roleId.isNotEmpty) {
+          roleIds.add(roleId);
+        }
+
+        final companyId = row['company_id']?.toString();
+        if (companyId != null && companyId.isNotEmpty) {
+          companyIds.add(companyId);
         }
       }
 
-      final missingCompanyIds = <String>{};
-      for (final entry in acc.values) {
-        final companyId = entry.companyId?.trim() ?? '';
-        final companyName = entry.companyName?.trim() ?? '';
-        if (companyId.isNotEmpty && companyName.isEmpty) {
-          missingCompanyIds.add(companyId);
-        }
-      }
-
-      if (missingCompanyIds.isNotEmpty) {
-        final names = await _loadCompanyNamesByIds(missingCompanyIds);
-        for (final entry in acc.values) {
-          final companyId = entry.companyId?.trim() ?? '';
-          if (companyId.isNotEmpty && names.containsKey(companyId)) {
-            entry.companyName = names[companyId];
+      final roleNameById = <String, String>{};
+      if (roleIds.isNotEmpty) {
+        final roleRows = await _supabase
+            .from('roles')
+            .select('id,role_name')
+            .inFilter('id', roleIds.toList());
+        for (final role in roleRows) {
+          final id = role['id']?.toString();
+          final name = role['role_name']?.toString();
+          if (id != null && id.isNotEmpty && name != null) {
+            roleNameById[id] = name;
           }
         }
       }
 
-      // ensure hard-admin gets all permissions even if view rows are limited
-      for (final entry in acc.values) {
-        if (entry.isHardAdmin) {
-          entry.permissionCodes.addAll(AppPermission.values.map((e) => e.code));
+      final rolePermissionsByRoleId = <String, Set<String>>{};
+      if (roleIds.isNotEmpty) {
+        final rolePermissionRows = await _supabase
+            .from('role_permissions')
+            .select('role_id,permission_code')
+            .inFilter('role_id', roleIds.toList());
+        for (final row in rolePermissionRows) {
+          final roleId = row['role_id']?.toString();
+          final code = row['permission_code']?.toString();
+          if (roleId == null ||
+              roleId.isEmpty ||
+              code == null ||
+              code.isEmpty) {
+            continue;
+          }
+          rolePermissionsByRoleId
+              .putIfAbsent(roleId, () => <String>{})
+              .add(code);
         }
       }
 
-      return acc.values
-          .map((e) => e.toAppUser(_defaultPermissionsForRole))
-          .toList();
+      final userPermissionsByUserId = <String, Set<String>>{};
+      if (userIds.isNotEmpty) {
+        final userPermissionRows = await _supabase
+            .from('user_permissions')
+            .select('user_id,permission_code')
+            .inFilter('user_id', userIds.toList());
+        for (final row in userPermissionRows) {
+          final userId = row['user_id']?.toString();
+          final code = row['permission_code']?.toString();
+          if (userId == null ||
+              userId.isEmpty ||
+              code == null ||
+              code.isEmpty) {
+            continue;
+          }
+          userPermissionsByUserId
+              .putIfAbsent(userId, () => <String>{})
+              .add(code);
+        }
+      }
+
+      final companyNamesById = await _loadCompanyNamesByIds(companyIds);
+
+      final users = <AppUser>[];
+      for (final row in scopedRows) {
+        final id = row['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+
+        final email = row['email']?.toString() ?? '';
+        final roleId = row['role_id']?.toString();
+        final companyId = row['company_id']?.toString();
+        final roleName = roleNameById[roleId ?? ''] ?? '';
+
+        if (roleId != null &&
+            roleId.isNotEmpty &&
+            roleNameById[roleId] == null) {}
+
+        final isHardAdmin = _isHardAdmin(email);
+
+        final mergedCodes = <String>{
+          ...?rolePermissionsByRoleId[roleId ?? ''],
+          ...?userPermissionsByUserId[id],
+        };
+
+        final resolvedPermissions = mergedCodes
+            .map(AppPermission.fromCode)
+            .whereType<AppPermission>()
+            .toSet();
+        final basePermissions = _defaultPermissionsForRole(roleName);
+        final permissions = isHardAdmin
+            ? AppPermission.values.toSet()
+            : (resolvedPermissions.isEmpty
+                  ? basePermissions
+                  : basePermissions.union(resolvedPermissions));
+
+        users.add(
+          AppUser(
+            id: id,
+            name: row['name']?.toString() ?? 'User',
+            email: email,
+            companyId: companyId,
+            companyName: companyNamesById[companyId ?? ''],
+            roleId: roleId ?? '',
+            role: isHardAdmin
+                ? UserRole.admin
+                : UserRole.fromRoleName(roleName),
+            permissions: permissions,
+            createdAt: DateTime.now(),
+            isActive: row['is_active'] as bool? ?? true,
+            lastActive: DateTime.tryParse(row['last_active']?.toString() ?? ''),
+          ),
+        );
+      }
+
+      users.sort((a, b) => a.name.compareTo(b.name));
+      return users;
     });
+  }
+
+  Future<String?> _currentUserCompanyId() async {
+    final currentUser = _supabase.auth.currentUser;
+    if (currentUser == null) return null;
+    try {
+      final row = await _supabase
+          .from('users')
+          .select('company_id')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+      final companyId = row?['company_id']?.toString();
+      if (companyId == null || companyId.isEmpty) return null;
+      return companyId;
+    } catch (_) {
+      return null;
+    }
   }
 
   Stream<AppUser> _watchProfile(User user) {
@@ -468,17 +592,22 @@ class FirebaseBackendDataSource implements BackendDataSource {
         return _fetchProfile(user);
       }
 
+      final roleNameRaw = rows.first['role_name']?.toString().trim();
+      final resolvedRoleName = (roleNameRaw != null && roleNameRaw.isNotEmpty)
+          ? roleNameRaw
+          : 'Order Entry User';
       final acc = _UserAcc(
         id: user.id,
         name: rows.first['name']?.toString() ?? (user.email ?? 'User'),
         email: rows.first['email']?.toString() ?? (user.email ?? ''),
         companyId: rows.first['company_id']?.toString(),
         companyName: rows.first['company_name']?.toString(),
-        roleName: rows.first['role_name']?.toString() ?? 'Order Entry User',
+        roleName: resolvedRoleName,
         isHardAdmin: _isHardAdmin(rows.first['email']?.toString() ?? ''),
         isActive: rows.first['is_active'] as bool? ?? true,
-        lastActive:
-            DateTime.tryParse(rows.first['last_active']?.toString() ?? ''),
+        lastActive: DateTime.tryParse(
+          rows.first['last_active']?.toString() ?? '',
+        ),
       );
 
       for (final row in rows) {
@@ -651,48 +780,47 @@ class FirebaseBackendDataSource implements BackendDataSource {
       });
 
   @override
-  Stream<List<EmployeeReport>> watchEmployeeReports() =>
-      _supabase
-          .from('order_status_history')
-          .stream(primaryKey: ['id'])
-          .map((rows) {
-            final Map<String, ReportAcc> acc = {};
-            for (final r in rows) {
-              final userId = r['changed_by']?.toString();
-              final orderId = r['order_id']?.toString();
-              if (userId == null || userId.isEmpty) continue;
-              if (orderId == null || orderId.isEmpty) continue;
-              final name = r['changed_by_name']?.toString() ?? 'Unknown';
-              final status = (r['status']?.toString() ?? '').toLowerCase();
-              final entry = acc.putIfAbsent(
-                userId,
-                () => ReportAcc(id: userId, name: name),
-              );
-              switch (status) {
-                case 'entered':
-                  entry.enteredOrderIds.add(orderId);
-                  break;
-                case 'checked':
-                case 'approved':
-                  entry.reviewedOrderIds.add(orderId);
-                  break;
-                case 'shipped':
-                  entry.shippedOrderIds.add(orderId);
-                  break;
-                case 'completed':
-                  entry.completedOrderIds.add(orderId);
-                  break;
-                case 'returned':
-                  entry.returnedOrderIds.add(orderId);
-                  break;
-                default:
-                  break;
-              }
-            }
-            final list = acc.values.map((e) => e.toReport()).toList();
-            list.sort((a, b) => a.userName.compareTo(b.userName));
-            return list;
-          });
+  Stream<List<EmployeeReport>> watchEmployeeReports() => _supabase
+      .from('order_status_history')
+      .stream(primaryKey: ['id'])
+      .map((rows) {
+        final Map<String, ReportAcc> acc = {};
+        for (final r in rows) {
+          final userId = r['changed_by']?.toString();
+          final orderId = r['order_id']?.toString();
+          if (userId == null || userId.isEmpty) continue;
+          if (orderId == null || orderId.isEmpty) continue;
+          final name = r['changed_by_name']?.toString() ?? 'Unknown';
+          final status = (r['status']?.toString() ?? '').toLowerCase();
+          final entry = acc.putIfAbsent(
+            userId,
+            () => ReportAcc(id: userId, name: name),
+          );
+          switch (status) {
+            case 'entered':
+              entry.enteredOrderIds.add(orderId);
+              break;
+            case 'checked':
+            case 'approved':
+              entry.reviewedOrderIds.add(orderId);
+              break;
+            case 'shipped':
+              entry.shippedOrderIds.add(orderId);
+              break;
+            case 'completed':
+              entry.completedOrderIds.add(orderId);
+              break;
+            case 'returned':
+              entry.returnedOrderIds.add(orderId);
+              break;
+            default:
+              break;
+          }
+        }
+        final list = acc.values.map((e) => e.toReport()).toList();
+        list.sort((a, b) => a.userName.compareTo(b.userName));
+        return list;
+      });
 
   // ----- Orders -----
   @override
@@ -792,16 +920,20 @@ class FirebaseBackendDataSource implements BackendDataSource {
   Future<void> upsertProduct({
     required AppUser actor,
     required ProductDraft product,
-  }) => _callRpc('upsert_product', {
-    'p_product_id': product.id,
-    'p_name': product.name,
-    'p_sku': product.sku,
-    'p_category': product.category,
-    'p_purchase_price': product.purchasePrice,
-    'p_sale_price': product.salePrice,
-    'p_stock': product.stock,
-    'p_min_stock': product.minStockLevel,
-  }, failMessage: 'product_op_failed');
+  }) {
+    final companyId = product.companyId ?? actor.companyId;
+    return _callRpc('upsert_product', {
+      'p_product_id': product.id,
+      'p_name': product.name,
+      'p_sku': product.sku,
+      'p_category': product.category,
+      'p_purchase_price': product.purchasePrice,
+      'p_sale_price': product.salePrice,
+      'p_stock': product.stock,
+      'p_min_stock': product.minStockLevel,
+      'p_company_id': companyId,
+    }, failMessage: 'product_op_failed');
+  }
 
   @override
   Future<void> deleteProduct({
@@ -889,17 +1021,32 @@ class FirebaseBackendDataSource implements BackendDataSource {
     await _ensureCurrentUserProfile();
     final token = await _freshAccessToken();
 
-    final payload = {
+    final payload = <String, dynamic>{
       'action': action,
       'employeeId': employee.id,
-      'name': employee.name,
-      'email': employee.email,
-      'password': employee.password,
-      'companyName': employee.companyName,
-      'roleName': employee.role.label,
-      'permissions': employee.permissions.map((e) => e.code).toList(),
-      'isActive': employee.isActive,
     };
+
+    if (action == 'create' || action == 'update') {
+      payload['name'] = employee.name;
+      payload['email'] = employee.email;
+      if (employee.password != null && employee.password!.isNotEmpty) {
+        payload['password'] = employee.password;
+      }
+      if (employee.companyName != null &&
+          employee.companyName!.trim().isNotEmpty) {
+        payload['companyName'] = employee.companyName;
+      }
+      payload['roleName'] = employee.role.label;
+      payload['permissions'] = employee.permissions.map((e) => e.code).toList();
+      payload['isActive'] = employee.isActive;
+      if (action == 'update') {
+        payload['permissionsMode'] = 'replace';
+      }
+    }
+
+    if (action == 'deactivate') {
+      payload['isActive'] = employee.isActive;
+    }
 
     try {
       final res = await _supabase.functions.invoke(
@@ -913,13 +1060,35 @@ class FirebaseBackendDataSource implements BackendDataSource {
         },
       );
       if (res.status >= 400) {
-        throw AppException(res.data?.toString() ?? 'employee_op_failed');
+        throw AppException(_extractFunctionErrorMessage(res.data));
       }
-    } on FunctionException {
-      throw AppException('employee_op_failed');
+      final data = res.data;
+      if (data is Map && data['status']?.toString() == 'error') {
+        throw AppException(data['message']?.toString() ?? 'employee_op_failed');
+      }
+      if (data is Map && data['noChange'] == true) {
+        throw AppException('No changes detected');
+      }
+    } on AppException {
+      rethrow;
+    } on FunctionException catch (e) {
+      throw AppException(_extractFunctionErrorMessage(e.details));
     } catch (_) {
       throw AppException('employee_op_failed');
     }
+  }
+
+  String _extractFunctionErrorMessage(dynamic details) {
+    if (details is Map) {
+      final message = details['message']?.toString();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+    }
+    if (details is String && details.trim().isNotEmpty) {
+      return details.trim();
+    }
+    return 'employee_op_failed';
   }
 
   Future<String> _freshAccessToken() async {
@@ -961,6 +1130,9 @@ class FirebaseBackendDataSource implements BackendDataSource {
       if (e.code == '23505' && fn == 'upsert_product') {
         throw AppException('product_sku_exists');
       }
+      if (e.code == '23503' && fn == 'upsert_product') {
+        throw AppException('product_company_invalid');
+      }
       if (e.code == '23503' && fn == 'create_order') {
         throw AppException('order_product_missing');
       }
@@ -981,6 +1153,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
     salePrice: (row['sale_price'] as num?)?.toDouble() ?? 0,
     currentStock: row['current_stock'] as int? ?? 0,
     minStockLevel: row['min_stock_level'] as int? ?? 0,
+    companyId: row['company_id']?.toString(),
   );
 
   OrderEntity _mapOrderRow(Map row) => OrderEntity(
@@ -1056,6 +1229,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
         return 'auth_generic_error';
     }
   }
+
   @override
   Future<OrderEntity?> getOrderById(String id) async {
     final res = await _supabase

@@ -332,10 +332,28 @@ void _showResult(
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
-        state.hasError ? state.error.toString() : successMessage,
+        state.hasError
+            ? _localizeEmployeeError(context, state.error.toString())
+            : successMessage,
       ),
     ),
   );
+}
+
+String _localizeEmployeeError(BuildContext context, String message) {
+  if (message == 'No changes detected') {
+    return context.t(
+      en: 'No changes detected. Update a field or permissions and try again.',
+      ar: 'لم يتم اكتشاف أي تغييرات. عدّل قيمة أو صلاحيات ثم حاول مرة أخرى.',
+    );
+  }
+  if (message == 'employee_op_failed') {
+    return context.t(
+      en: 'Employee update failed. Please try again.',
+      ar: 'فشل تعديل الموظف. يرجى المحاولة مرة أخرى.',
+    );
+  }
+  return message;
 }
 }
 
@@ -415,7 +433,7 @@ class _UserCard extends StatelessWidget {
                     ),
                     if ((user.companyName ?? '').trim().isNotEmpty)
                       Text(
-                        '• ${user.companyName}',
+                        '- ${user.companyName}',
                         style: Theme.of(context).textTheme.bodySmall,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -546,3 +564,4 @@ class _UserCard extends StatelessWidget {
     );
   }
 }
+

@@ -8,6 +8,7 @@ class Product {
     required this.salePrice,
     required this.currentStock,
     required this.minStockLevel,
+    this.companyId,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class Product {
   final double salePrice;
   final int currentStock;
   final int minStockLevel;
+  final String? companyId;
 
   double get unitProfit => salePrice - purchasePrice;
   bool get isLowStock => currentStock <= minStockLevel;
@@ -31,6 +33,7 @@ class Product {
     double? salePrice,
     int? currentStock,
     int? minStockLevel,
+    String? companyId,
   }) {
     return Product(
       id: id ?? this.id,
@@ -41,6 +44,7 @@ class Product {
       salePrice: salePrice ?? this.salePrice,
       currentStock: currentStock ?? this.currentStock,
       minStockLevel: minStockLevel ?? this.minStockLevel,
+      companyId: companyId ?? this.companyId,
     );
   }
 }

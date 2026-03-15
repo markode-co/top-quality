@@ -183,7 +183,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: purchaseController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Purchase Price (EGP)',
@@ -194,7 +196,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: saleController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     labelText: context.t(
                       en: 'Sale Price (EGP)',
@@ -281,6 +285,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             salePrice: salePrice,
             stock: stock,
             minStockLevel: minStockLevel,
+            companyId:
+                product?.companyId ?? ref.read(currentUserProvider)?.companyId,
           ),
         );
 
@@ -393,9 +399,11 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   void _showOperationResult(BuildContext context) {
     final state = ref.read(operationsControllerProvider);
     if (state.hasError) {
+      final error = state.error.toString();
+      final message = _localizeProductError(context, error);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(state.error.toString())));
+      ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -405,6 +413,28 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         ),
       ),
     );
+  }
+
+  String _localizeProductError(BuildContext context, String message) {
+    if (message.contains('product_sku_exists')) {
+      return context.t(
+        en: 'A product with this SKU already exists in your company.',
+        ar: 'منتج بهذا الـ SKU موجود بالفعل في شركتك.',
+      );
+    }
+    if (message.contains('product_company_invalid')) {
+      return context.t(
+        en: 'Cannot add product to a different company.',
+        ar: 'لا يمكن إضافة المنتج لشركة مختلفة.',
+      );
+    }
+    if (message.contains('product_op_failed')) {
+      return context.t(
+        en: 'Product operation failed. Please check your input and try again.',
+        ar: 'فشلت عملية المنتج. تحقق من البيانات وحاول مرة أخرى.',
+      );
+    }
+    return message;
   }
 }
 
@@ -447,7 +477,9 @@ class _ProductCard extends StatelessWidget {
         value: product.isLowStock
             ? context.t(en: 'Low Stock', ar: 'مخزون منخفض')
             : context.t(en: 'Healthy', ar: 'مستقر'),
-        color: product.isLowStock ? const Color(0xFFB63D3D) : const Color(0xFF0C6B58),
+        color: product.isLowStock
+            ? const Color(0xFFB63D3D)
+            : const Color(0xFF0C6B58),
       ),
     ];
 
@@ -522,11 +554,7 @@ class _ProductCard extends StatelessWidget {
                       children: [
                         ...metrics,
                         if (actions.isNotEmpty)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: actions,
-                          ),
+                          Wrap(spacing: 8, runSpacing: 4, children: actions),
                       ],
                     ),
                   ),
@@ -560,18 +588,10 @@ class _ProductCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: metrics,
-                ),
+                Wrap(spacing: 12, runSpacing: 8, children: metrics),
                 if (actions.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: actions,
-                  ),
+                  Wrap(spacing: 8, runSpacing: 4, children: actions),
                 ],
               ],
             );

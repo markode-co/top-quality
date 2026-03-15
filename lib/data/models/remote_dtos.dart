@@ -152,6 +152,7 @@ class RemoteMapper {
           (inventory?['min_stock'] as num?)?.toInt() ??
           (json['min_stock'] as num?)?.toInt() ??
           0,
+      companyId: json['company_id']?.toString(),
     );
   }
 
