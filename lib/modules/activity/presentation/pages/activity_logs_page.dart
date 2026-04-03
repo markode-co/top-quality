@@ -117,7 +117,9 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                         for (final log in filtered)
                           Card(
                             child: ListTile(
-                              leading: const Icon(Icons.history),
+                              leading: const Icon(
+                                Icons.history_toggle_off_outlined,
+                              ),
                               title: Text(_actionLabel(context, log)),
                               subtitle: Text(
                                 '${log.actorName}\n${_entitySummary(context, log)}',

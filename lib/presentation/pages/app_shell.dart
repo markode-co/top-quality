@@ -207,7 +207,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       _AppDestination(
         id: 'activity',
         label: context.t(en: 'Activity', ar: 'النشاط'),
-        icon: Icons.history,
+        icon: Icons.history_toggle_off_outlined,
         page: const ActivityLogsPage(),
         visibleWhen: (candidate) =>
             candidate.hasPermission(AppPermission.activityLogsView),

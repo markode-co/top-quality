@@ -37,6 +37,59 @@ class AppTheme {
     );
   }
 
+  static AppBarTheme _appBarTheme(
+    ColorScheme scheme, {
+    required Color backgroundColor,
+    required double scrolledUnderElevation,
+  }) {
+    return AppBarTheme(
+      centerTitle: false,
+      backgroundColor: backgroundColor,
+      foregroundColor: scheme.onSurface,
+      elevation: 0,
+      scrolledUnderElevation: scrolledUnderElevation,
+      iconTheme: IconThemeData(color: scheme.onSurfaceVariant),
+      actionsIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
+      titleTextStyle: _textTheme(
+        scheme,
+        scheme.brightness == Brightness.dark,
+      ).titleLarge,
+    );
+  }
+
+  static IconButtonThemeData _iconButtonTheme(ColorScheme scheme) {
+    return IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: scheme.onSurfaceVariant,
+        disabledForegroundColor: scheme.onSurface.withValues(alpha: 0.36),
+        minimumSize: const Size.square(42),
+        padding: const EdgeInsets.all(10),
+      ),
+    );
+  }
+
+  static NavigationRailThemeData _navigationRailTheme(
+    ColorScheme scheme, {
+    required Color backgroundColor,
+  }) {
+    return NavigationRailThemeData(
+      backgroundColor: backgroundColor,
+      indicatorColor: scheme.primaryContainer.withValues(alpha: 0.72),
+      selectedIconTheme: IconThemeData(color: scheme.primary),
+      unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant),
+      selectedLabelTextStyle: TextStyle(
+        color: scheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+      unselectedLabelTextStyle: TextStyle(
+        color: scheme.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
+      useIndicator: true,
+      elevation: 0,
+    );
+  }
+
   static ThemeData light() {
     const brandBlue = Color(0xFF0D5E9E);
     const brandCyan = Color(0xFF27A7DF);
@@ -54,13 +107,13 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: const Color(0xFFF1F6FB),
       textTheme: _textTheme(colorScheme, false),
-      appBarTheme: AppBarTheme(
-        centerTitle: false,
+      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 22),
+      appBarTheme: _appBarTheme(
+        colorScheme,
         backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
         scrolledUnderElevation: 0.4,
       ),
+      iconButtonTheme: _iconButtonTheme(colorScheme),
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
@@ -134,6 +187,23 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
         indicatorColor: colorScheme.primaryContainer,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          );
+        }),
+      ),
+      navigationRailTheme: _navigationRailTheme(
+        colorScheme,
+        backgroundColor: colorScheme.surface,
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -158,13 +228,13 @@ class AppTheme {
       brightness: Brightness.dark,
       textTheme: _textTheme(colorScheme, true),
       scaffoldBackgroundColor: const Color(0xFF0C1520),
-      appBarTheme: AppBarTheme(
-        centerTitle: false,
+      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 22),
+      appBarTheme: _appBarTheme(
+        colorScheme,
         backgroundColor: const Color(0xFF101E2D),
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
         scrolledUnderElevation: 0.2,
       ),
+      iconButtonTheme: _iconButtonTheme(colorScheme),
       cardTheme: CardThemeData(
         color: const Color(0xFF132234),
         elevation: 0,
@@ -238,6 +308,23 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: const Color(0xFF101E2D),
         indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.7),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            color: selected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          );
+        }),
+      ),
+      navigationRailTheme: _navigationRailTheme(
+        colorScheme,
+        backgroundColor: const Color(0xFF101E2D),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

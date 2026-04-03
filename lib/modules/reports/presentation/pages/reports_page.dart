@@ -302,20 +302,21 @@ class _EmployeesGrid extends StatelessWidget {
                 ? 2
                 : 1;
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: reports.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: isWide ? 1.35 : 1.1,
-          ),
-          itemBuilder: (context, index) {
-            final report = reports[index];
-            return _EmployeeCard(report: report, localeTag: localeTag);
-          },
+        const spacing = 12.0;
+        final itemWidth =
+            (constraints.maxWidth - (spacing * (crossAxisCount - 1))) /
+            crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final report in reports)
+              SizedBox(
+                width: itemWidth,
+                child: _EmployeeCard(report: report, localeTag: localeTag),
+              ),
+          ],
         );
       },
     );
@@ -339,6 +340,7 @@ class _EmployeeCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,8 +387,16 @@ class _EmployeeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text('#${latest.orderNo} • ${latest.customerName}'),
-                    Text(latest.customerPhone),
-                    Text(latest.customerAddress ?? '-'),
+                    Text(
+                      latest.customerPhone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      latest.customerAddress ?? '-',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     Text(
                       AppFormatters.shortDateTime(latest.actionAt, localeTag),
                       style: Theme.of(context).textTheme.bodySmall,
