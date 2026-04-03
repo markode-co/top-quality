@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
+import 'package:top_quality/domain/entities/employee_draft.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
 
@@ -53,16 +54,23 @@ class _OrganizationPageState extends ConsumerState<OrganizationPage> {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+    final noChangesMessage = context.t(
+      en: 'No changes to save.',
+      ar: 'لا يوجد تغييرات للحفظ.',
+    );
+    final successMessage = context.t(
+      en: 'Organization and branch settings updated successfully.',
+      ar: 'تم تحديث إعدادات المنظمة والفروع بنجاح.',
+    );
+    final failureMessage = context.t(
+      en: 'Failed to save organization settings.',
+      ar: 'فشل حفظ إعدادات المنظمة.',
+    );
     final newCompanyName = _nameController.text.trim();
     final currentCompanyName = (currentUser.companyName ?? '').trim();
     if (newCompanyName == currentCompanyName) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(en: 'No changes to save.', ar: 'لا يوجد تغييرات للحفظ.'),
-          ),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(noChangesMessage)));
       return;
     }
 
@@ -82,28 +90,12 @@ class _OrganizationPageState extends ConsumerState<OrganizationPage> {
               isActive: currentUser.isActive,
             ),
           );
+      if (!mounted) return;
       ref.invalidate(sessionProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(
-              en: 'Organization and branch settings updated successfully.',
-              ar: 'تم تحديث إعدادات المنظمة والفروع بنجاح.',
-            ),
-          ),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(successMessage)));
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(
-              en: 'Failed to save organization settings.',
-              ar: 'فشل حفظ إعدادات المنظمة.',
-            ),
-          ),
-        ),
-      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(failureMessage)));
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
