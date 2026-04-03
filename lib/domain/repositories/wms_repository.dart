@@ -2,8 +2,10 @@ import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/branch_profile.dart';
 import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/organization_profile.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
@@ -16,6 +18,7 @@ abstract class WmsRepository {
   Stream<List<ActivityLog>> watchActivityLogs();
   Stream<DashboardSnapshot> watchDashboardSnapshot();
   Stream<List<EmployeeReport>> watchEmployeeReports();
+  Future<List<BranchProfile>> getBranches();
   Future<void> createOrder({
     required AppUser actor,
     required String customerName,
@@ -76,6 +79,15 @@ abstract class WmsRepository {
   Future<void> deleteEmployee({
     required AppUser actor,
     required String employeeId,
+  });
+  Future<OrganizationProfile?> getOrganizationProfile(String companyId);
+  Future<void> updateOrganizationProfile({
+    required AppUser actor,
+    required OrganizationProfile profile,
+  });
+  Future<void> upsertBranch({
+    required AppUser actor,
+    required BranchProfile branch,
   });
   Future<void> markNotificationRead(String notificationId);
 

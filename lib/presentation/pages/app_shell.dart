@@ -18,6 +18,7 @@ import 'package:top_quality/modules/activity/presentation/pages/activity_logs_pa
 import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/app_top_controls.dart';
+import 'package:top_quality/presentation/widgets/standalone_page_scaffold.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -69,7 +70,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           const SizedBox(width: 8),
           IconButton(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsPage()),
+              MaterialPageRoute(
+                builder: (_) => StandalonePageScaffold(
+                  title: context.t(en: 'Branch settings', ar: 'إعدادات الفروع'),
+                  child: const SettingsPage(),
+                ),
+              ),
             ),
             icon: const Icon(Icons.settings_outlined),
             tooltip: context.t(en: 'Settings', ar: 'الإعدادات'),

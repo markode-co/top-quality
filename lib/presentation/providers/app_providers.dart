@@ -9,8 +9,10 @@ import 'package:top_quality/data/repositories_impl/wms_repository_impl.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/branch_profile.dart';
 import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/organization_profile.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
@@ -107,6 +109,14 @@ final usersProvider = StreamProvider<List<AppUser>>((ref) {
     return Stream<List<AppUser>>.value(const []);
   }
   return ref.watch(wmsRepositoryProvider).watchUsers();
+});
+
+final branchesProvider = FutureProvider<List<BranchProfile>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Future<List<BranchProfile>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).getBranches();
 });
 
 final activityLogsProvider = StreamProvider<List<ActivityLog>>((ref) {
@@ -273,9 +283,21 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
 
   void _refreshUsersStream() {
     _ref.invalidate(usersProvider);
+    _ref.invalidate(branchesProvider);
     _ref.invalidate(activityLogsProvider);
     _ref.invalidate(notificationsProvider);
     _ref.invalidate(employeeReportsProvider);
+  }
+
+  void _refreshOrganizationStreams() {
+    _ref.invalidate(sessionProvider);
+    _ref.invalidate(currentUserProvider);
+    _ref.invalidate(branchesProvider);
+    _ref.invalidate(usersProvider);
+    _ref.invalidate(dashboardProvider);
+    _ref.invalidate(activityLogsProvider);
+    _ref.invalidate(employeeReportsProvider);
+    _ref.invalidate(notificationsProvider);
   }
 
   Future<void> createOrder({
@@ -435,6 +457,28 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
             .read(wmsRepositoryProvider)
             .updateEmployee(actor: user, employee: employee);
         _refreshUsersStream();
+      },
+    );
+  }
+
+  Future<void> updateOrganizationProfile(OrganizationProfile profile) {
+    return _run(
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .updateOrganizationProfile(actor: user, profile: profile);
+        _refreshOrganizationStreams();
+      },
+    );
+  }
+
+  Future<void> upsertBranch(BranchProfile branch) {
+    return _run(
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .upsertBranch(actor: user, branch: branch);
+        _ref.invalidate(branchesProvider);
       },
     );
   }

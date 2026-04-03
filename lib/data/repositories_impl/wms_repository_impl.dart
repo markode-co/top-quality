@@ -3,8 +3,10 @@ import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/branch_profile.dart';
 import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/organization_profile.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
@@ -160,6 +162,33 @@ class WmsRepositoryImpl implements WmsRepository {
     required String employeeId,
   }) {
     return _dataSource.deleteEmployee(actor: actor, employeeId: employeeId);
+  }
+
+  @override
+  Future<OrganizationProfile?> getOrganizationProfile(String companyId) {
+    return _dataSource.getOrganizationProfile(companyId);
+  }
+
+  @override
+  Future<void> updateOrganizationProfile({
+    required AppUser actor,
+    required OrganizationProfile profile,
+  }) {
+    return _dataSource.updateOrganizationProfile(
+      actor: actor,
+      profile: profile,
+    );
+  }
+
+  @override
+  Future<List<BranchProfile>> getBranches() => _dataSource.getBranches();
+
+  @override
+  Future<void> upsertBranch({
+    required AppUser actor,
+    required BranchProfile branch,
+  }) {
+    return _dataSource.upsertBranch(actor: actor, branch: branch);
   }
 
   @override

@@ -7,8 +7,10 @@ import 'package:top_quality/data/datasources/remote/backend_data_source.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/branch_profile.dart';
 import 'package:top_quality/domain/entities/dashboard_snapshot.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
+import 'package:top_quality/domain/entities/organization_profile.dart';
 import 'package:top_quality/domain/entities/order.dart';
 import 'package:top_quality/domain/entities/product.dart';
 import 'package:top_quality/domain/entities/product_draft.dart';
@@ -1186,6 +1188,191 @@ class FirebaseBackendDataSource implements BackendDataSource {
       isActive: false,
     ),
   );
+
+  @override
+  Future<List<BranchProfile>> getBranches() async {
+    final companyId = await _currentUserCompanyId();
+    if (companyId == null || companyId.isEmpty) {
+      return const [];
+    }
+
+    try {
+      final rows = await _supabase
+          .from('branches')
+          .select('id, name, phone, email, address, is_active')
+          .eq('company_id', companyId)
+          .order('name');
+
+      return rows.map((row) {
+        return BranchProfile(
+          id: row['id']?.toString(),
+          name: row['name']?.toString() ?? '',
+          phone: row['phone']?.toString() ?? '',
+          email: row['email']?.toString(),
+          address: row['address']?.toString(),
+          isActive: row['is_active'] as bool? ?? true,
+        );
+      }).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  @override
+  Future<void> upsertBranch({
+    required AppUser actor,
+    required BranchProfile branch,
+  }) async {
+    final companyId = actor.companyId?.trim() ?? '';
+    if (companyId.isEmpty) {
+      throw AppException('company_required');
+    }
+
+    final name = branch.name.trim();
+    if (name.isEmpty) {
+      throw AppException('branch_name_required');
+    }
+
+    final payload = <String, dynamic>{
+      'company_id': companyId,
+      'name': name,
+      'phone': branch.phone.trim().isEmpty ? null : branch.phone.trim(),
+      'email': (branch.email ?? '').trim().isEmpty ? null : branch.email!.trim(),
+      'address':
+          (branch.address ?? '').trim().isEmpty ? null : branch.address!.trim(),
+      'is_active': branch.isActive,
+    };
+
+    try {
+      if (branch.id != null && branch.id!.trim().isNotEmpty) {
+        await _supabase.from('branches').update(payload).eq('id', branch.id!);
+        return;
+      }
+
+      final existing = await _supabase
+          .from('branches')
+          .select('id')
+          .eq('company_id', companyId)
+          .ilike('name', name)
+          .limit(1)
+          .maybeSingle();
+
+      if (existing?['id'] != null) {
+        await _supabase
+            .from('branches')
+            .update(payload)
+            .eq('id', existing!['id'].toString());
+      } else {
+        await _supabase.from('branches').insert(payload);
+      }
+    } catch (error) {
+      throw AppException(error.toString());
+    }
+  }
+
+  @override
+  Future<OrganizationProfile?> getOrganizationProfile(String companyId) async {
+    if (companyId.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      final row = await _supabase
+          .from('companies')
+          .select(
+            'id, name, official_email, phone, address, '
+            'inventory_alerts_enabled, auto_approve_repeat_orders, '
+            'require_invoice_verification',
+          )
+          .eq('id', companyId)
+          .maybeSingle();
+
+      if (row == null) {
+        return null;
+      }
+
+      return OrganizationProfile(
+        companyId: row['id']?.toString() ?? companyId,
+        name: row['name']?.toString() ?? '',
+        officialEmail: row['official_email']?.toString() ?? '',
+        phone: row['phone']?.toString() ?? '',
+        address: row['address']?.toString() ?? '',
+        inventoryAlertsEnabled:
+            row['inventory_alerts_enabled'] as bool? ?? true,
+        autoApproveRepeatOrders:
+            row['auto_approve_repeat_orders'] as bool? ?? false,
+        requireInvoiceVerification:
+            row['require_invoice_verification'] as bool? ?? true,
+      );
+    } catch (_) {
+      final fallback = await _supabase
+          .from('companies')
+          .select('id, name')
+          .eq('id', companyId)
+          .maybeSingle();
+
+      if (fallback == null) {
+        return null;
+      }
+
+      return OrganizationProfile(
+        companyId: fallback['id']?.toString() ?? companyId,
+        name: fallback['name']?.toString() ?? '',
+        officialEmail: '',
+        phone: '',
+        address: '',
+        inventoryAlertsEnabled: true,
+        autoApproveRepeatOrders: false,
+        requireInvoiceVerification: true,
+      );
+    }
+  }
+
+  @override
+  Future<void> updateOrganizationProfile({
+    required AppUser actor,
+    required OrganizationProfile profile,
+  }) async {
+    final companyId = actor.companyId?.trim() ?? '';
+    if (companyId.isEmpty) {
+      throw AppException('company_required');
+    }
+
+    try {
+      await _supabase
+          .from('companies')
+          .update({
+            'name': profile.name.trim(),
+            'official_email': profile.officialEmail.trim().isEmpty
+                ? null
+                : profile.officialEmail.trim(),
+            'phone': profile.phone.trim().isEmpty ? null : profile.phone.trim(),
+            'address':
+                profile.address.trim().isEmpty ? null : profile.address.trim(),
+            'inventory_alerts_enabled': profile.inventoryAlertsEnabled,
+            'auto_approve_repeat_orders': profile.autoApproveRepeatOrders,
+            'require_invoice_verification': profile.requireInvoiceVerification,
+          })
+          .eq('id', companyId);
+      _profileCache.clear();
+      return;
+    } catch (_) {
+      await _callEmployeeFn(
+        action: 'update',
+        employee: EmployeeDraft(
+          id: actor.id,
+          name: actor.name,
+          email: actor.email,
+          password: null,
+          companyName: profile.name.trim(),
+          role: actor.role,
+          permissions: actor.permissions,
+          isActive: actor.isActive,
+        ),
+      );
+      _profileCache.clear();
+    }
+  }
 
   // ----- Notifications -----
   @override

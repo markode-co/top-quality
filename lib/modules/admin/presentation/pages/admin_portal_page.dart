@@ -13,6 +13,7 @@ import 'package:top_quality/modules/settings/presentation/pages/settings_page.da
 import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
+import 'package:top_quality/presentation/widgets/standalone_page_scaffold.dart';
 
 class AdminPortalPage extends ConsumerWidget {
   const AdminPortalPage({
@@ -23,6 +24,21 @@ class AdminPortalPage extends ConsumerWidget {
 
   final ValueChanged<String> onOpenOrder;
   final VoidCallback onCreateOrder;
+
+  Future<void> _openPortalPage(
+    BuildContext context, {
+    required String title,
+    required Widget child,
+  }) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StandalonePageScaffold(
+          title: title,
+          child: child,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -143,55 +159,73 @@ class AdminPortalPage extends ConsumerWidget {
               _ActionButton(
                 icon: Icons.receipt_long_outlined,
                 label: context.t(en: 'Manage orders', ar: 'إدارة الطلبات'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => OrdersPage(
-                      onOpenOrder: onOpenOrder,
-                      onCreateOrder: onCreateOrder,
-                    ),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(en: 'Orders', ar: 'الطلبات'),
+                  child: OrdersPage(
+                    onOpenOrder: onOpenOrder,
+                    onCreateOrder: onCreateOrder,
                   ),
                 ),
               ),
               _ActionButton(
                 icon: Icons.business_outlined,
                 label: context.t(en: 'Organization settings', ar: 'إعدادات المنظمة'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OrganizationPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(
+                    en: 'Organization settings',
+                    ar: 'إعدادات المنظمة',
+                  ),
+                  child: const OrganizationPage(),
                 ),
               ),
               _ActionButton(
                 icon: Icons.apartment_outlined,
                 label: context.t(en: 'Branch management', ar: 'إدارة الفروع'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CustomersPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(en: 'Branch management', ar: 'إدارة الفروع'),
+                  child: const CustomersPage(),
                 ),
               ),
               _ActionButton(
                 icon: Icons.settings_outlined,
                 label: context.t(en: 'Branch settings', ar: 'إعدادات الفروع'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(en: 'Branch settings', ar: 'إعدادات الفروع'),
+                  child: const SettingsPage(),
                 ),
               ),
               _ActionButton(
                 icon: Icons.auto_graph_outlined,
                 label: context.t(en: 'Advanced analytics', ar: 'التقارير المتقدمة'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AdvancedReportsPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(
+                    en: 'Advanced analytics',
+                    ar: 'التقارير المتقدمة',
+                  ),
+                  child: const AdvancedReportsPage(),
                 ),
               ),
               _ActionButton(
                 icon: Icons.inventory_2_outlined,
                 label: context.t(en: 'Manage products', ar: 'إدارة المنتجات'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const InventoryPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(en: 'Manage products', ar: 'إدارة المنتجات'),
+                  child: const InventoryPage(),
                 ),
               ),
               _ActionButton(
                 icon: Icons.group_outlined,
                 label: context.t(en: 'Manage employees', ar: 'إدارة الموظفين'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const UsersPage()),
+                onPressed: () => _openPortalPage(
+                  context,
+                  title: context.t(en: 'Manage employees', ar: 'إدارة الموظفين'),
+                  child: const UsersPage(),
                 ),
               ),
             ],

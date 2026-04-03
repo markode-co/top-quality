@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/domain/entities/branch_profile.dart';
 import 'package:top_quality/domain/entities/employee_draft.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
 import 'package:top_quality/presentation/widgets/common_widgets.dart';
@@ -151,45 +152,52 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
   }
 
   Future<bool> _trySaveBranchToBackend(_BranchRecord branch) async {
-    final email = branch.email?.trim();
-    if (email == null || email.isEmpty) {
-      return false;
-    }
-
-    final users = ref.read(usersProvider).valueOrNull ?? const [];
-    AppUser? existingUser;
-    for (final user in users) {
-      if (user.email.trim().toLowerCase() == email.toLowerCase()) {
-        existingUser = user;
-        break;
-      }
-    }
-
-    if (existingUser == null) {
-      return false;
-    }
-
-    final currentBranchName = (existingUser.companyName ?? '').trim();
-    final newBranchName = branch.name.trim();
-    if (currentBranchName.toLowerCase() == newBranchName.toLowerCase()) {
-      return true;
-    }
-
-    final payload = EmployeeDraft(
-      id: existingUser.id,
-      name: existingUser.name,
-      email: existingUser.email,
-      password: null,
-      companyName: newBranchName,
-      role: existingUser.role,
-      permissions: existingUser.permissions,
-      isActive: existingUser.isActive,
-    );
-
     try {
       await ref
           .read(operationsControllerProvider.notifier)
-          .updateEmployee(payload);
+          .upsertBranch(
+            BranchProfile(
+              name: branch.name.trim(),
+              phone: branch.phone.trim(),
+              email: branch.email?.trim(),
+              address: branch.address?.trim(),
+              isActive: branch.isActive,
+            ),
+          );
+
+      final email = branch.email?.trim();
+      if (email != null && email.isNotEmpty) {
+        final users = ref.read(usersProvider).valueOrNull ?? const [];
+        AppUser? existingUser;
+        for (final user in users) {
+          if (user.email.trim().toLowerCase() == email.toLowerCase()) {
+            existingUser = user;
+            break;
+          }
+        }
+
+        if (existingUser != null) {
+          final currentBranchName = (existingUser.companyName ?? '').trim();
+          final newBranchName = branch.name.trim();
+          if (currentBranchName.toLowerCase() != newBranchName.toLowerCase()) {
+            final payload = EmployeeDraft(
+              id: existingUser.id,
+              name: existingUser.name,
+              email: existingUser.email,
+              password: null,
+              companyName: newBranchName,
+              role: existingUser.role,
+              permissions: existingUser.permissions,
+              isActive: existingUser.isActive,
+            );
+            await ref
+                .read(operationsControllerProvider.notifier)
+                .updateEmployee(payload);
+          }
+        }
+      }
+
+      ref.invalidate(branchesProvider);
       return true;
     } catch (_) {
       if (mounted) {
@@ -214,9 +222,22 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
     final currentUser = ref.watch(currentUserProvider);
     final users = ref.watch(usersProvider).valueOrNull ?? const [];
     final orders = ref.watch(ordersProvider).valueOrNull ?? const [];
+    final storedBranches = ref.watch(branchesProvider).valueOrNull ?? const [];
+    final fallbackBranch = (currentUser?.companyName ?? '').trim();
 
     final branchesByKey = <String, _BranchRecord>{};
     final userIdToBranchName = <String, String>{};
+
+    for (final branch in storedBranches) {
+      final key = _branchKey(branch.name);
+      branchesByKey[key] = _BranchRecord(
+        name: branch.name,
+        phone: branch.phone,
+        email: branch.email,
+        address: branch.address,
+        isActive: branch.isActive,
+      );
+    }
 
     for (final user in users) {
       final branchName = (user.companyName ?? '').trim();
@@ -238,7 +259,6 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       userIdToBranchName[user.id] = branchName;
     }
 
-    final fallbackBranch = (currentUser?.companyName ?? '').trim();
     if (fallbackBranch.isNotEmpty) {
       final key = _branchKey(fallbackBranch);
       branchesByKey.putIfAbsent(
@@ -434,6 +454,11 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
           ),
         ),
         const SizedBox(height: 18),
+        if (ref.watch(branchesProvider).isLoading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: LinearProgressIndicator(),
+          ),
         if (filtered.isEmpty)
           StandardCard(
             child: Text(
