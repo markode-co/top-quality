@@ -27,6 +27,37 @@ class AppConstants {
   static const supabaseFunctionsBaseUrl = String.fromEnvironment(
     'SUPABASE_FUNCTIONS_URL',
   );
+  static const adminPortalEmails = String.fromEnvironment(
+    'ADMIN_PORTAL_EMAILS',
+    defaultValue: String.fromEnvironment(
+      'HARD_ADMIN_EMAILS',
+      defaultValue: 'ca.markode@gmail.com',
+    ),
+  );
   static const appTitle = 'Top Quality';
   static const currencyCode = 'EGP';
+
+  static bool isAdminPortalEmail(String? email) {
+    final normalized = (email ?? '').trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    for (final raw in adminPortalEmails.split(',')) {
+      final candidate = raw.trim().toLowerCase();
+      if (candidate.isNotEmpty && candidate == normalized) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static String get primaryAdminPortalEmail {
+    for (final raw in adminPortalEmails.split(',')) {
+      final candidate = raw.trim().toLowerCase();
+      if (candidate.isNotEmpty) {
+        return candidate;
+      }
+    }
+    return 'ca.markode@gmail.com';
+  }
 }

@@ -50,7 +50,14 @@ class OrderDetailPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('طلب رقم ${order.orderNo}')),
+      appBar: AppBar(
+        title: Text(
+          context.t(
+            en: 'Order #${order.orderNo}',
+            ar: 'طلب رقم ${order.orderNo}',
+          ),
+        ),
+      ),
       body: ResponsiveListView(
         onRefresh: refreshOrderDetail,
         children: [
@@ -75,19 +82,31 @@ class OrderDetailPage extends ConsumerWidget {
                 ),
                 _Info(
                   label: context.t(en: 'Date', ar: 'التاريخ'),
-                  value: AppFormatters.shortDateTime(order.orderDate),
+                  value: AppFormatters.shortDateTime(
+                    order.orderDate,
+                    Localizations.localeOf(context).toString(),
+                  ),
                 ),
                 _Info(
                   label: context.t(en: 'Total Cost', ar: 'إجمالي التكلفة'),
-                  value: AppFormatters.currency(order.totalCost),
+                  value: AppFormatters.currency(
+                    order.totalCost,
+                    Localizations.localeOf(context).toString(),
+                  ),
                 ),
                 _Info(
                   label: context.t(en: 'Revenue', ar: 'الإيراد'),
-                  value: AppFormatters.currency(order.totalRevenue),
+                  value: AppFormatters.currency(
+                    order.totalRevenue,
+                    Localizations.localeOf(context).toString(),
+                  ),
                 ),
                 _Info(
                   label: context.t(en: 'Profit', ar: 'الربح'),
-                  value: AppFormatters.currency(order.profit),
+                  value: AppFormatters.currency(
+                    order.profit,
+                    Localizations.localeOf(context).toString(),
+                  ),
                 ),
               ],
             ),
@@ -167,11 +186,20 @@ class OrderDetailPage extends ConsumerWidget {
                       title: Text(item.productName),
                       subtitle: Text(
                         context.t(
-                          en: 'Qty ${item.quantity} • ${AppFormatters.currency(item.salePrice)}',
-                          ar: 'كمية ${item.quantity} • ${AppFormatters.currency(item.salePrice)}',
+                          en: 'Qty ${item.quantity} • ${AppFormatters.currency(
+                            item.salePrice,
+                            Localizations.localeOf(context).toString(),
+                          )}',
+                          ar: 'كمية ${item.quantity} • ${AppFormatters.currency(
+                            item.salePrice,
+                            Localizations.localeOf(context).toString(),
+                          )}',
                         ),
                       ),
-                      trailing: Text(AppFormatters.currency(item.totalRevenue)),
+                      trailing: Text(AppFormatters.currency(
+                        item.totalRevenue,
+                        Localizations.localeOf(context).toString(),
+                      )),
                     ),
                   )
                   .toList(),
@@ -188,7 +216,10 @@ class OrderDetailPage extends ConsumerWidget {
                       leading: const Icon(Icons.timeline),
                       title: Text(context.orderStatusLabel(entry.status)),
                       subtitle: Text(
-                        '${entry.changedByName} • ${AppFormatters.shortDateTime(entry.changedAt)}',
+                        '${entry.changedByName} • ${AppFormatters.shortDateTime(
+                          entry.changedAt,
+                          Localizations.localeOf(context).toString(),
+                        )}',
                       ),
                       trailing: entry.note == null ? null : Text(entry.note!),
                     ),

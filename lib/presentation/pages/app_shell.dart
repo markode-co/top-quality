@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_quality/core/constants/app_constants.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
+import 'package:top_quality/modules/admin/presentation/pages/admin_portal_page.dart';
 import 'package:top_quality/modules/auth/presentation/pages/login_page.dart';
 import 'package:top_quality/modules/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:top_quality/modules/inventory/presentation/pages/inventory_page.dart';
@@ -11,6 +13,7 @@ import 'package:top_quality/modules/orders/presentation/pages/create_order_page.
 import 'package:top_quality/modules/orders/presentation/pages/order_detail_page.dart';
 import 'package:top_quality/modules/orders/presentation/pages/orders_page.dart';
 import 'package:top_quality/modules/reports/presentation/pages/reports_page.dart';
+import 'package:top_quality/modules/settings/presentation/pages/settings_page.dart';
 import 'package:top_quality/modules/activity/presentation/pages/activity_logs_page.dart';
 import 'package:top_quality/modules/users/presentation/pages/users_page.dart';
 import 'package:top_quality/presentation/providers/app_providers.dart';
@@ -63,6 +66,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         title: Text(currentDestination.label),
         actions: [
           Chip(label: Text(context.roleLabel(user.role))),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SettingsPage()),
+            ),
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: context.t(en: 'Settings', ar: 'الإعدادات'),
+          ),
           const SizedBox(width: 8),
           const LanguageToggle(),
           const SizedBox(width: 8),
@@ -126,6 +137,17 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   List<_AppDestination> _buildDestinations(BuildContext context, AppUser user) {
     final all = <_AppDestination>[
+      _AppDestination(
+        id: 'admin_portal',
+        label: context.t(en: 'Admin Portal', ar: 'بوابة الأدمن'),
+        icon: Icons.admin_panel_settings_outlined,
+        page: AdminPortalPage(
+          onOpenOrder: _openOrder,
+          onCreateOrder: _openCreateOrder,
+        ),
+        visibleWhen: (candidate) =>
+            AppConstants.isAdminPortalEmail(candidate.email),
+      ),
       _AppDestination(
         id: 'dashboard',
         label: context.t(en: 'Dashboard', ar: 'لوحة التحكم'),

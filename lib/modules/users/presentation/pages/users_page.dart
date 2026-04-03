@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:top_quality/core/constants/app_constants.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
@@ -40,17 +41,10 @@ class UsersPage extends ConsumerWidget {
 
     final usersValue = ref.watch(usersProvider);
 
-    Future<void> refreshUsers() async {
-      ref.invalidate(usersProvider);
-      try {
-        await ref.read(usersProvider.future);
-      } catch (_) {}
-    }
-
     return usersValue.when(
       data: (users) {
         return ResponsiveListView(
-          onRefresh: refreshUsers,
+          onRefresh: () => _refreshUsers(ref),
           children: [
             if (canCreate)
               Align(
@@ -95,6 +89,13 @@ class UsersPage extends ConsumerWidget {
     );
   }
 
+  Future<void> _refreshUsers(WidgetRef ref) async {
+    ref.invalidate(usersProvider);
+    try {
+      await ref.read(usersProvider.future);
+    } catch (_) {}
+  }
+
   Future<void> _openEmployeeDialog(
     BuildContext context,
     WidgetRef ref, {
@@ -102,7 +103,11 @@ class UsersPage extends ConsumerWidget {
   }) async {
     final nameController = TextEditingController(text: user?.name ?? '');
     final emailController = TextEditingController(text: user?.email ?? '');
-    final currentCompanyName = ref.read(currentUserProvider)?.companyName;
+    final currentUser = ref.read(currentUserProvider);
+    final canManageCompanies = AppConstants.isAdminPortalEmail(
+      currentUser?.email,
+    );
+    final currentCompanyName = currentUser?.companyName;
     final initialCompanyName = (user?.companyName ?? currentCompanyName ?? '')
         .trim();
     final companyController = TextEditingController(text: initialCompanyName);
@@ -149,15 +154,19 @@ class UsersPage extends ConsumerWidget {
                   TextField(
                     controller: companyController,
                     keyboardType: TextInputType.text,
-                    enabled: false,
+                    enabled: canManageCompanies,
                     decoration: InputDecoration(
                       labelText: context.t(
-                        en: 'Company name',
-                        ar: 'اسم الشركة',
+                        en: 'Company / Branch',
+                        ar: 'اسم الشركة أو الفرع',
                       ),
                       helperText: context.t(
-                        en: 'Company is fixed to your organization.',
-                        ar: 'اسم الشركة ثابت للشركة الحالية.',
+                        en: canManageCompanies
+                            ? 'Set company/branch. Data will be isolated to this scope.'
+                            : 'Company/branch is fixed to your organization.',
+                        ar: canManageCompanies
+                            ? 'حدّد الشركة أو الفرع. سيتم عزل البيانات لهذا النطاق فقط.'
+                            : 'الشركة/الفرع ثابت لحسابك الحالي.',
                       ),
                     ),
                   ),
@@ -208,7 +217,7 @@ class UsersPage extends ConsumerWidget {
                     children: AppPermission.values.map((permission) {
                       final selected = selectedPermissions.contains(permission);
                       return FilterChip(
-                        label: Text(permission.code),
+                        label: Text(context.permissionLabel(permission)),
                         selected: selected,
                         onSelected: (value) {
                           setState(() {
@@ -243,6 +252,24 @@ class UsersPage extends ConsumerWidget {
     if (saved != true) {
       return;
     }
+    if (!context.mounted) {
+      return;
+    }
+
+    final selectedCompanyName = companyController.text.trim();
+    if (canManageCompanies && selectedCompanyName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              en: 'Company or branch name is required for employee creation.',
+              ar: 'اسم الشركة أو الفرع مطلوب عند إنشاء الموظف.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
 
     final payload = EmployeeDraft(
       id: user?.id,
@@ -251,7 +278,7 @@ class UsersPage extends ConsumerWidget {
       password: passwordController.text.trim().isEmpty
           ? null
           : passwordController.text.trim(),
-      companyName: null, // force to current caller company on server
+      companyName: canManageCompanies ? selectedCompanyName : null,
       role: selectedRole,
       permissions: selectedPermissions,
       isActive: user?.isActive ?? true,
@@ -271,7 +298,10 @@ class UsersPage extends ConsumerWidget {
       return;
     }
 
-    ref.invalidate(usersProvider);
+    await _refreshUsers(ref);
+    if (!context.mounted) {
+      return;
+    }
 
     _showResult(
       context,
@@ -294,7 +324,8 @@ class UsersPage extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    ref.invalidate(usersProvider);
+    await _refreshUsers(ref);
+    if (!context.mounted) return;
 
     _showResult(
       context,
@@ -316,7 +347,8 @@ class UsersPage extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    ref.invalidate(usersProvider);
+    await _refreshUsers(ref);
+    if (!context.mounted) return;
 
     _showResult(
       context,
@@ -381,7 +413,11 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final permissions = user.permissions.map((p) => p.code).toList()..sort();
+    final permissions = user.permissions.toList()
+      ..sort(
+        (a, b) =>
+            context.permissionLabel(a).compareTo(context.permissionLabel(b)),
+      );
     final actions = <Widget>[
       if (canEdit)
         IconButton(
@@ -467,13 +503,13 @@ class _UserCard extends StatelessWidget {
                   )
                 else
                   ...shown.map(
-                    (code) => Tooltip(
-                      message: code,
+                    (permission) => Tooltip(
+                      message: context.permissionLabel(permission),
                       child: Chip(
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        label: LtrText(
-                          code,
+                        label: Text(
+                          context.permissionLabel(permission),
                           maxLines: 1,
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
@@ -511,7 +547,10 @@ class _UserCard extends StatelessWidget {
                           en: 'No recent activity',
                           ar: 'لا يوجد نشاط حديث',
                         )
-                      : AppFormatters.shortDateTime(user.lastActive!),
+                      : AppFormatters.shortDateTime(
+                          user.lastActive!,
+                          Localizations.localeOf(context).toString(),
+                        ),
                 ),
               ],
             );

@@ -152,15 +152,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() {
-    final email = _identifierController.text.trim();
+    final identifier = _identifierController.text.trim();
     final password = _passwordController.text;
 
     // Basic client-side validation before hitting Firebase.
-    if (email.isEmpty || !email.contains('@')) {
+    if (identifier.isEmpty) {
       setState(
         () => _localError = context.t(
-          en: 'Invalid email format.',
-          ar: 'صيغة البريد غير صحيحة.',
+          en: 'Enter username or email.',
+          ar: 'أدخل اسم المستخدم أو البريد الإلكتروني.',
         ),
       );
       return Future.value();
@@ -177,7 +177,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     setState(() => _localError = null);
     return ref.read(authControllerProvider.notifier).signIn(
-          identifier: email,
+          identifier: identifier,
           password: password,
         );
   }
@@ -198,8 +198,8 @@ String _translateAuthError(BuildContext context, Object? error) {
       );
     case 'auth_invalid_email':
       return context.t(
-        en: 'Invalid email format.',
-        ar: 'صيغة البريد غير صحيحة.',
+        en: 'Invalid username/email format.',
+        ar: 'صيغة اسم المستخدم/البريد الإلكتروني غير صحيحة.',
       );
     case 'auth_too_many_requests':
       return context.t(

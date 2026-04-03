@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/core/i18n/context_i18n.dart';
 import 'package:top_quality/core/utils/formatters.dart';
@@ -138,6 +139,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   }) async {
     final nameController = TextEditingController(text: product?.name ?? '');
     final skuController = TextEditingController(text: product?.sku ?? '');
+    final skuFocusNode = FocusNode();
+    final categoryFocusNode = FocusNode();
     final categoryController = TextEditingController(
       text: product?.category ?? '',
     );
@@ -153,6 +156,17 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     final minStockController = TextEditingController(
       text: product?.minStockLevel.toString() ?? '0',
     );
+    void disposeDialogResources() {
+      nameController.dispose();
+      skuController.dispose();
+      categoryController.dispose();
+      purchaseController.dispose();
+      saleController.dispose();
+      stockController.dispose();
+      minStockController.dispose();
+      skuFocusNode.dispose();
+      categoryFocusNode.dispose();
+    }
 
     final saved = await showDialog<bool>(
       context: context,
@@ -179,12 +193,46 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: skuController,
+                  focusNode: skuFocusNode,
+                  autofocus: true,
                   keyboardType: TextInputType.text,
-                  decoration: const InputDecoration(labelText: 'SKU'),
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) =>
+                      FocusScope.of(context).requestFocus(categoryFocusNode),
+                  decoration: InputDecoration(
+                    labelText: context.t(
+                      en: 'Barcode / SKU',
+                      ar: 'الباركود / SKU',
+                    ),
+                    hintText: context.t(
+                      en: 'Scan with reader, camera, or enter manually',
+                      ar: 'امسح بالماسح أو الكاميرا أو أدخل يدويًا',
+                    ),
+                    suffixIcon: IconButton(
+                      tooltip: context.t(
+                        en: 'Scan with camera',
+                        ar: 'مسح بالكاميرا',
+                      ),
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      onPressed: () async {
+                        final scanned = await _scanBarcodeWithCamera(context);
+                        if (!context.mounted ||
+                            scanned == null ||
+                            scanned.trim().isEmpty) {
+                          return;
+                        }
+                        skuController.text = scanned.trim();
+                        FocusScope.of(
+                          context,
+                        ).requestFocus(categoryFocusNode);
+                      },
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: categoryController,
+                  focusNode: categoryFocusNode,
                   keyboardType: TextInputType.text,
                   decoration: InputDecoration(
                     labelText: context.t(en: 'Category', ar: 'الفئة'),
@@ -256,6 +304,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     );
 
     if (saved != true) {
+      disposeDialogResources();
       return;
     }
 
@@ -280,30 +329,110 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
           ),
         );
       }
+      disposeDialogResources();
       return;
     }
 
-    await ref
-        .read(operationsControllerProvider.notifier)
-        .upsertProduct(
-          ProductDraft(
-            id: product?.id,
-            name: nameController.text.trim(),
-            sku: skuController.text.trim(),
-            category: categoryController.text.trim(),
-            purchasePrice: purchasePrice,
-            salePrice: salePrice,
-            stock: stock,
-            minStockLevel: minStockLevel,
-            companyId:
-                product?.companyId ?? ref.read(currentUserProvider)?.companyId,
+    try {
+      await ref.read(operationsControllerProvider.notifier).upsertProduct(
+        ProductDraft(
+          id: product?.id,
+          name: nameController.text.trim(),
+          sku: skuController.text.trim(),
+          category: categoryController.text.trim(),
+          purchasePrice: purchasePrice,
+          salePrice: salePrice,
+          stock: stock,
+          minStockLevel: minStockLevel,
+          companyId: product?.companyId ?? ref.read(currentUserProvider)?.companyId,
+        ),
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+      _showOperationResult(
+        context,
+        successMessage: product == null
+            ? context.t(
+                en: 'Product added successfully.',
+                ar: 'تمت إضافة المنتج بنجاح.',
+              )
+            : context.t(
+                en: 'Product updated successfully.',
+                ar: 'تم تعديل المنتج بنجاح.',
+              ),
+      );
+    } finally {
+      disposeDialogResources();
+    }
+  }
+
+  Future<String?> _scanBarcodeWithCamera(BuildContext context) async {
+    final scannerController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
+    var scanned = false;
+
+    try {
+      return await showDialog<String>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            context.t(
+              en: 'Scan Barcode',
+              ar: 'مسح الباركود',
+            ),
+          ),
+          content: SizedBox(
+            width: 360,
+            height: 360,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: MobileScanner(
+                controller: scannerController,
+                onDetect: (capture) {
+                  if (scanned) return;
+                  for (final barcode in capture.barcodes) {
+                    final raw = barcode.rawValue?.trim();
+                    if (raw != null && raw.isNotEmpty) {
+                      scanned = true;
+                      Navigator.of(dialogContext).pop(raw);
+                      return;
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.t(en: 'Cancel', ar: 'إلغاء')),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                en: 'Camera scan is unavailable on this device.',
+                ar: 'المسح بالكاميرا غير متاح على هذا الجهاز.',
+              ),
+            ),
           ),
         );
-
-    if (!context.mounted) {
-      return;
+      }
+      return null;
+    } finally {
+      scannerController.dispose();
     }
-    _showOperationResult(context);
   }
 
   Future<void> _showInventoryDialog(
@@ -393,7 +522,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     if (!context.mounted) {
       return;
     }
-    _showOperationResult(context);
+    _showOperationResult(
+      context,
+      successMessage: context.t(
+        en: 'Inventory adjusted successfully.',
+        ar: 'تم تعديل المخزون بنجاح.',
+      ),
+    );
   }
 
   Future<void> _deleteProduct(String productId) async {
@@ -403,10 +538,19 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     if (!mounted) {
       return;
     }
-    _showOperationResult(context);
+    _showOperationResult(
+      context,
+      successMessage: context.t(
+        en: 'Product deleted successfully.',
+        ar: 'تم حذف المنتج بنجاح.',
+      ),
+    );
   }
 
-  void _showOperationResult(BuildContext context) {
+  void _showOperationResult(
+    BuildContext context, {
+    required String successMessage,
+  }) {
     final state = ref.read(operationsControllerProvider);
     if (state.hasError) {
       final error = state.error.toString();
@@ -416,13 +560,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          context.t(en: 'Operation completed.', ar: 'تم تنفيذ العملية.'),
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(successMessage)));
   }
 
   String _localizeProductError(BuildContext context, String message) {
@@ -476,11 +616,17 @@ class _ProductCard extends StatelessWidget {
       ),
       _MetricText(
         label: context.t(en: 'Price', ar: 'السعر'),
-        value: AppFormatters.currency(product.salePrice),
+        value: AppFormatters.currency(
+          product.salePrice,
+          Localizations.localeOf(context).toString(),
+        ),
       ),
       _MetricText(
         label: context.t(en: 'Profit', ar: 'الربح'),
-        value: AppFormatters.currency(product.unitProfit),
+        value: AppFormatters.currency(
+          product.unitProfit,
+          Localizations.localeOf(context).toString(),
+        ),
       ),
       _MetricText(
         label: context.t(en: 'Status', ar: 'الحالة'),

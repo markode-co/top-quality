@@ -29,15 +29,21 @@ class DashboardPage extends ConsumerWidget {
       data: (snapshot) => ResponsiveListView(
         onRefresh: refreshDashboard,
         children: [
+          SectionHeader(
+            title: context.t(en: 'Executive dashboard', ar: 'لوحة التحكم'),
+            subtitle: context.t(
+              en: 'A modern view of orders, revenue, inventory and team activity.',
+              ar: 'عرض حديث للطلبات والإيرادات والمخزون ونشاط الفريق.',
+            ),
+          ),
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth > 1200
                   ? 4
-                  : constraints.maxWidth > 800
-                  ? 2
-                  : 1;
-              final width =
-                  (constraints.maxWidth - ((columns - 1) * 16)) / columns;
+                  : constraints.maxWidth > 900
+                      ? 2
+                      : 1;
+              final width = (constraints.maxWidth - ((columns - 1) * 16)) / columns;
               return Wrap(
                 spacing: 16,
                 runSpacing: 16,
@@ -53,8 +59,8 @@ class DashboardPage extends ConsumerWidget {
                         ),
                         value: '${snapshot.totalOrders}',
                         subtitle: context.t(
-                          en: 'Across all workflow stages',
-                          ar: 'عبر جميع مراحل سير العمل',
+                          en: 'Orders tracked across the system',
+                          ar: 'الطلبات المتتبعة عبر النظام',
                         ),
                         icon: Icons.receipt_long_outlined,
                         color: const Color(0xFF0C6B58),
@@ -67,10 +73,13 @@ class DashboardPage extends ConsumerWidget {
                       constraints: const BoxConstraints(minHeight: 196),
                       child: StatCard(
                         title: context.t(en: 'Revenue', ar: 'الإيراد'),
-                        value: AppFormatters.currency(snapshot.revenue),
+                        value: AppFormatters.currency(
+                          snapshot.revenue,
+                          Localizations.localeOf(context).toString(),
+                        ),
                         subtitle: context.t(
-                          en: 'Realized from shipped/completed orders',
-                          ar: 'متحقق من الطلبات المشحونة/المكتملة',
+                          en: 'From completed and shipped orders',
+                          ar: 'من الطلبات المكتملة والمشحونة',
                         ),
                         icon: Icons.payments_outlined,
                         color: const Color(0xFFD97A29),
@@ -83,10 +92,13 @@ class DashboardPage extends ConsumerWidget {
                       constraints: const BoxConstraints(minHeight: 196),
                       child: StatCard(
                         title: context.t(en: 'Profit', ar: 'الربح'),
-                        value: AppFormatters.currency(snapshot.profit),
+                        value: AppFormatters.currency(
+                          snapshot.profit,
+                          Localizations.localeOf(context).toString(),
+                        ),
                         subtitle: context.t(
-                          en: 'Calculated automatically per order',
-                          ar: 'يُحسب تلقائيًا لكل طلب',
+                          en: 'Net margin across all sales',
+                          ar: 'الهامش الصافي عبر جميع المبيعات',
                         ),
                         icon: Icons.trending_up_outlined,
                         color: const Color(0xFF1E64B7),
@@ -98,14 +110,33 @@ class DashboardPage extends ConsumerWidget {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 196),
                       child: StatCard(
+                        title: context.t(en: 'Inventory value', ar: 'قيمة المخزون'),
+                        value: AppFormatters.currency(
+                          snapshot.inventoryValue,
+                          Localizations.localeOf(context).toString(),
+                        ),
+                        subtitle: context.t(
+                          en: 'Current stock value in warehouse',
+                          ar: 'قيمة المخزون الحالية في المستودع',
+                        ),
+                        icon: Icons.inventory_2_outlined,
+                        color: const Color(0xFF6C63FF),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: width,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 196),
+                      child: StatCard(
                         title: context.t(
-                          en: 'Low Stock Alerts',
+                          en: 'Low stock alerts',
                           ar: 'تنبيهات نقص المخزون',
                         ),
                         value: '${snapshot.lowStockAlerts}',
                         subtitle: context.t(
-                          en: 'Products below minimum stock',
-                          ar: 'منتجات أقل من الحد الأدنى',
+                          en: 'Products below warning threshold',
+                          ar: 'منتجات تحت حد التحذير',
                         ),
                         icon: Icons.warning_amber_rounded,
                         color: const Color(0xFFB63D3D),
@@ -141,7 +172,12 @@ class DashboardPage extends ConsumerWidget {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(order.customerName),
-                            subtitle: Text('طلب رقم ${order.orderNo}'),
+                            subtitle: Text(
+                              context.t(
+                                en: 'Order #${order.orderNo}',
+                                ar: 'طلب رقم ${order.orderNo}',
+                              ),
+                            ),
                             trailing: StatusBadge(order.status),
                             onTap: () => onOpenOrder(order.id),
                           );
@@ -175,7 +211,12 @@ class DashboardPage extends ConsumerWidget {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(order.customerName),
-                            subtitle: Text('طلب رقم ${order.orderNo}'),
+                            subtitle: Text(
+                              context.t(
+                                en: 'Order #${order.orderNo}',
+                                ar: 'طلب رقم ${order.orderNo}',
+                              ),
+                            ),
                             trailing: StatusBadge(order.status),
                             onTap: () => onOpenOrder(order.id),
                           );
@@ -225,7 +266,14 @@ class _StatusChart extends StatelessWidget {
             .toDouble();
 
     if (maxY == 0) {
-      return const Center(child: Text('لا توجد بيانات للعرض الآن'));
+      return Center(
+        child: Text(
+          context.t(
+            en: 'No data available yet.',
+            ar: 'لا توجد بيانات للعرض الآن',
+          ),
+        ),
+      );
     }
 
     return BarChart(

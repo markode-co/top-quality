@@ -72,7 +72,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
   final Map<String, Future<AppUser>> _profileCache = {};
 
   bool _isHardAdmin(String email) =>
-      email.trim().toLowerCase() == 'markode@gmail.com';
+      AppConstants.isAdminPortalEmail(email);
 
   AppUser _mapUserFromProfile(Map res, User fallback) {
     final permList = (res['permissions'] as List?)?.cast<String>() ?? [];
@@ -325,6 +325,7 @@ class FirebaseBackendDataSource implements BackendDataSource {
     required String identifier,
     required String password,
   }) async {
+    _profileCache.clear();
     try {
       final res = await _supabase.auth.signInWithPassword(
         email: await _resolveEmail(identifier),
@@ -339,7 +340,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
   }
 
   @override
-  Future<void> signOut() => _supabase.auth.signOut();
+  Future<void> signOut() async {
+    _profileCache.clear();
+    await _supabase.auth.signOut();
+  }
 
   // ----- Streams -----
   @override
@@ -402,6 +406,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
   Stream<List<Product>> watchProducts() => _supabase
       .from('products')
       .stream(primaryKey: ['id'])
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      )
       .map((rows) => rows.map(_mapProductRow).toList());
 
   @override
@@ -409,24 +417,32 @@ class FirebaseBackendDataSource implements BackendDataSource {
       .from('notifications')
       .stream(primaryKey: ['id'])
       .order('created_at', ascending: false)
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      )
       .map(
         (rows) => rows.map((row) => RemoteMapper.notification(row)).toList(),
       );
 
   @override
   Stream<List<AppUser>> watchUsers() {
-    final stream = _supabase.from('users').stream(primaryKey: ['id']);
+    final stream = _supabase.from('users').stream(primaryKey: ['id'])
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      );
 
     return stream.asyncMap((rows) async {
       if (rows.isEmpty) return <AppUser>[];
       final scopedCompanyId = await _currentUserCompanyId();
-      final scopedRows = scopedCompanyId == null
-          ? rows
-          : rows
-                .where(
-                  (row) => row['company_id']?.toString() == scopedCompanyId,
-                )
-                .toList();
+      if (scopedCompanyId == null || scopedCompanyId.isEmpty) {
+        // Fail closed: never return unscoped users if company resolution fails.
+        return <AppUser>[];
+      }
+      final scopedRows = rows
+          .where((row) => row['company_id']?.toString() == scopedCompanyId)
+          .toList();
       if (scopedRows.isEmpty) return <AppUser>[];
 
       final userIds = <String>{};
@@ -588,7 +604,11 @@ class FirebaseBackendDataSource implements BackendDataSource {
     final stream = _supabase
         .from('v_users_with_permissions')
         .stream(primaryKey: ['id', 'permission_code'])
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .handleError(
+          (error, stack) {},
+          test: (error) => error is RealtimeSubscribeException,
+        );
 
     return stream.asyncMap((rows) async {
       if (rows.isEmpty) {
@@ -693,6 +713,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
       .from('v_activity_logs')
       .stream(primaryKey: ['id'])
       .order('created_at', ascending: false)
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      )
       .map((rows) => rows.map(_mapActivityRow).toList());
 
   @override
@@ -700,6 +724,10 @@ class FirebaseBackendDataSource implements BackendDataSource {
       .from('orders')
       .stream(primaryKey: ['id'])
       .order('created_at', ascending: false)
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      )
       .asyncMap((orderRows) async {
         // fetch related items and stock snapshot
         final itemsRes = await _supabase
@@ -784,42 +812,173 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   @override
   Stream<List<EmployeeReport>> watchEmployeeReports() => _supabase
-      .from('order_status_history')
+      .from('orders')
       .stream(primaryKey: ['id'])
-      .map((rows) {
-        final Map<String, ReportAcc> acc = {};
-        for (final r in rows) {
-          final userId = r['changed_by']?.toString();
-          final orderId = r['order_id']?.toString();
-          if (userId == null || userId.isEmpty) continue;
+      .order('created_at', ascending: false)
+      .handleError(
+        (error, stack) {},
+        test: (error) => error is RealtimeSubscribeException,
+      )
+      .asyncMap((orderRows) async {
+        final acc = <String, ReportAcc>{};
+        final orderMetaById = <String, ({
+          int orderNo,
+          String customerName,
+          String customerPhone,
+          String? customerAddress,
+          DateTime orderDate,
+        })>{};
+
+        final orderIds = orderRows
+            .map((row) => row['id']?.toString())
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toList();
+
+        for (final row in orderRows) {
+          final orderId = row['id']?.toString();
           if (orderId == null || orderId.isEmpty) continue;
-          final name = r['changed_by_name']?.toString() ?? 'Unknown';
-          final status = (r['status']?.toString() ?? '').toLowerCase();
+          orderMetaById[orderId] = (
+            orderNo: (row['order_no'] as num?)?.toInt() ?? 0,
+            customerName: row['customer_name']?.toString() ?? '',
+            customerPhone: row['customer_phone']?.toString() ?? '',
+            customerAddress: row['customer_address']?.toString(),
+            orderDate:
+                DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+                DateTime.now(),
+          );
+        }
+
+        // Fallback seed: count "entered" from order creator, even if status
+        // history rows are missing for legacy orders.
+        for (final row in orderRows) {
+          final orderId = row['id']?.toString();
+          final userId = row['created_by']?.toString();
+          if (orderId == null || orderId.isEmpty) continue;
+          if (userId == null || userId.isEmpty) continue;
+          final name = row['created_by_name']?.toString() ?? 'Unknown';
           final entry = acc.putIfAbsent(
             userId,
             () => ReportAcc(id: userId, name: name),
           );
-          switch (status) {
-            case 'entered':
-              entry.enteredOrderIds.add(orderId);
-              break;
-            case 'checked':
-            case 'approved':
-              entry.reviewedOrderIds.add(orderId);
-              break;
-            case 'shipped':
-              entry.shippedOrderIds.add(orderId);
-              break;
-            case 'completed':
-              entry.completedOrderIds.add(orderId);
-              break;
-            case 'returned':
-              entry.returnedOrderIds.add(orderId);
-              break;
-            default:
-              break;
+          entry.enteredOrderIds.add(orderId);
+          final meta = orderMetaById[orderId];
+          if (meta != null) {
+            entry.addOrderDetail(
+              orderId: orderId,
+              orderNo: meta.orderNo,
+              customerName: meta.customerName,
+              customerPhone: meta.customerPhone,
+              customerAddress: meta.customerAddress,
+              status: OrderStatus.entered,
+              actionAt: meta.orderDate,
+            );
           }
         }
+
+        if (orderIds.isNotEmpty) {
+          final historyRows = await _supabase
+              .from('order_status_history')
+              .select('order_id,status,changed_by,changed_by_name,changed_at')
+              .inFilter('order_id', orderIds);
+
+          for (final row in historyRows) {
+            final orderId = row['order_id']?.toString();
+            final userId = row['changed_by']?.toString();
+            if (orderId == null || orderId.isEmpty) continue;
+            if (userId == null || userId.isEmpty) continue;
+
+            final name = row['changed_by_name']?.toString() ?? 'Unknown';
+            final status = (row['status']?.toString() ?? '').toLowerCase();
+            final entry = acc.putIfAbsent(
+              userId,
+              () => ReportAcc(id: userId, name: name),
+            );
+
+            final meta = orderMetaById[orderId];
+            final actionAt =
+                DateTime.tryParse(row['changed_at']?.toString() ?? '') ??
+                meta?.orderDate ??
+                DateTime.now();
+
+            switch (status) {
+              case 'entered':
+                entry.enteredOrderIds.add(orderId);
+                if (meta != null) {
+                  entry.addOrderDetail(
+                    orderId: orderId,
+                    orderNo: meta.orderNo,
+                    customerName: meta.customerName,
+                    customerPhone: meta.customerPhone,
+                    customerAddress: meta.customerAddress,
+                    status: OrderStatus.entered,
+                    actionAt: actionAt,
+                  );
+                }
+                break;
+              case 'checked':
+              case 'approved':
+                entry.reviewedOrderIds.add(orderId);
+                if (meta != null) {
+                  entry.addOrderDetail(
+                    orderId: orderId,
+                    orderNo: meta.orderNo,
+                    customerName: meta.customerName,
+                    customerPhone: meta.customerPhone,
+                    customerAddress: meta.customerAddress,
+                    status: OrderStatus.checked,
+                    actionAt: actionAt,
+                  );
+                }
+                break;
+              case 'shipped':
+                entry.shippedOrderIds.add(orderId);
+                if (meta != null) {
+                  entry.addOrderDetail(
+                    orderId: orderId,
+                    orderNo: meta.orderNo,
+                    customerName: meta.customerName,
+                    customerPhone: meta.customerPhone,
+                    customerAddress: meta.customerAddress,
+                    status: OrderStatus.shipped,
+                    actionAt: actionAt,
+                  );
+                }
+                break;
+              case 'completed':
+                entry.completedOrderIds.add(orderId);
+                if (meta != null) {
+                  entry.addOrderDetail(
+                    orderId: orderId,
+                    orderNo: meta.orderNo,
+                    customerName: meta.customerName,
+                    customerPhone: meta.customerPhone,
+                    customerAddress: meta.customerAddress,
+                    status: OrderStatus.completed,
+                    actionAt: actionAt,
+                  );
+                }
+                break;
+              case 'returned':
+                entry.returnedOrderIds.add(orderId);
+                if (meta != null) {
+                  entry.addOrderDetail(
+                    orderId: orderId,
+                    orderNo: meta.orderNo,
+                    customerName: meta.customerName,
+                    customerPhone: meta.customerPhone,
+                    customerAddress: meta.customerAddress,
+                    status: OrderStatus.returned,
+                    actionAt: actionAt,
+                  );
+                }
+                break;
+              default:
+                break;
+            }
+          }
+        }
+
         final list = acc.values.map((e) => e.toReport()).toList();
         list.sort((a, b) => a.userName.compareTo(b.userName));
         return list;
@@ -1221,16 +1380,35 @@ class FirebaseBackendDataSource implements BackendDataSource {
 
   Future<String> _resolveEmail(String raw) async {
     final trimmed = raw.trim();
+    if (trimmed.isEmpty) return trimmed;
     if (trimmed.contains('@')) return trimmed;
 
-    // Try Supabase lookup by username -> email
-    final res = await _supabase
-        .from('users')
-        .select('email')
-        .eq('username', trimmed)
-        .maybeSingle();
-    final email = res == null ? null : res['email']?.toString();
-    if (email != null && email.contains('@')) return email;
+    // Preferred path: server-side resolver that works pre-auth (anon) without
+    // relying on direct table selects blocked by RLS.
+    try {
+      final rpcRes = await _supabase.rpc(
+        'resolve_login_email',
+        params: {'p_identifier': trimmed},
+      );
+      final rpcEmail = rpcRes?.toString().trim();
+      if (rpcEmail != null && rpcEmail.contains('@')) return rpcEmail;
+    } catch (_) {
+      // Keep compatibility with environments where the RPC is not deployed yet.
+    }
+
+    // Legacy fallback for permissive environments.
+    try {
+      final res = await _supabase
+          .from('users')
+          .select('email')
+          .eq('username', trimmed)
+          .limit(1)
+          .maybeSingle();
+      final email = res == null ? null : res['email']?.toString().trim();
+      if (email != null && email.contains('@')) return email;
+    } catch (_) {
+      // Ignore; we'll continue with fallback-domain strategy below.
+    }
 
     // Fallback: append configured domain if present
     if (AppConstants.loginFallbackDomain.isNotEmpty) {

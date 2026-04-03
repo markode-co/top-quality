@@ -16,7 +16,10 @@ class OrderCard extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? trailing;
 
-  String _orderLabel(OrderEntity order) => 'طلب رقم ${order.orderNo}';
+  String _orderLabel(BuildContext context, OrderEntity order) => context.t(
+        en: 'Order #${order.orderNo}',
+        ar: 'طلب رقم ${order.orderNo}',
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -46,11 +49,14 @@ class OrderCard extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              _orderLabel(order),
+                              _orderLabel(context, order),
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             Text(
-                              '• ${AppFormatters.shortDateTime(order.orderDate)}',
+                              '• ${AppFormatters.shortDateTime(
+                                order.orderDate,
+                                Localizations.localeOf(context).toString(),
+                              )}',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
@@ -72,12 +78,18 @@ class OrderCard extends StatelessWidget {
                     ),
                     _Metric(
                       label: context.t(en: 'Revenue', ar: 'الإيراد'),
-                      value: AppFormatters.currency(order.totalRevenue),
+                      value: AppFormatters.currency(
+                        order.totalRevenue,
+                        Localizations.localeOf(context).toString(),
+                      ),
                       ltr: true,
                     ),
                     _Metric(
                       label: context.t(en: 'Profit', ar: 'الربح'),
-                      value: AppFormatters.currency(order.profit),
+                      value: AppFormatters.currency(
+                        order.profit,
+                        Localizations.localeOf(context).toString(),
+                      ),
                       ltr: true,
                     ),
                   ];

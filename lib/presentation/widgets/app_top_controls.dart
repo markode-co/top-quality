@@ -18,8 +18,8 @@ class LanguageToggle extends ConsumerWidget {
             : const Locale('ar', 'EG');
       },
       tooltip: isArabic
-          ? context.t(en: 'Switch to English', ar: 'التبديل إلى الإنجليزية')
-          : context.t(en: 'Switch to Arabic', ar: 'التبديل إلى العربية'),
+          ? context.t(en: 'Switch to English', ar: 'التحويل إلى الإنجليزية')
+          : context.t(en: 'Switch to Arabic', ar: 'التحويل إلى العربية'),
       icon: Text(
         isArabic ? 'AR' : 'EN',
         style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.4),
@@ -35,23 +35,36 @@ class ThemeModeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(appThemeModeProvider);
     final dark = mode == ThemeMode.dark;
+    final system = mode == ThemeMode.system;
 
     return IconButton.filledTonal(
       onPressed: () {
-        ref.read(appThemeModeProvider.notifier).state = dark
-            ? ThemeMode.light
-            : ThemeMode.dark;
+        final next = switch (mode) {
+          ThemeMode.system => ThemeMode.light,
+          ThemeMode.light => ThemeMode.dark,
+          ThemeMode.dark => ThemeMode.system,
+        };
+        ref.read(appThemeModeProvider.notifier).state = next;
       },
-      tooltip: dark
-          ? context.t(
-              en: 'Switch to light mode',
-              ar: 'التبديل إلى الوضع الفاتح',
-            )
-          : context.t(
-              en: 'Switch to dark mode',
-              ar: 'التبديل إلى الوضع الداكن',
-            ),
-      icon: Icon(dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded),
+      tooltip: switch (mode) {
+        ThemeMode.system => context.t(
+            en: 'Theme follows system (tap for light mode)',
+            ar: 'المظهر يتبع النظام (اضغط للانتقال إلى الفاتح)',
+          ),
+        ThemeMode.light => context.t(
+            en: 'Light mode active (tap for dark mode)',
+            ar: 'الوضع الفاتح مفعل (اضغط للانتقال إلى الداكن)',
+          ),
+        ThemeMode.dark => context.t(
+            en: 'Dark mode active (tap for system mode)',
+            ar: 'الوضع الداكن مفعل (اضغط للانتقال إلى التلقائي)',
+          ),
+      },
+      icon: Icon(
+        system
+            ? Icons.brightness_auto_rounded
+            : (dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded),
+      ),
     );
   }
 }

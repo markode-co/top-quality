@@ -16,10 +16,13 @@ import type {
 
 /* ================= HARD ADMIN ================= */
 
-const fallbackEmail =
-  Deno.env.get("HARD_ADMIN_EMAILS")?.split(",")
+const hardAdminEmails = new Set(
+  (Deno.env.get("HARD_ADMIN_EMAILS") ?? "ca.markode@gmail.com")
+    .split(",")
     .map((s) => s.trim().toLowerCase())
-    .find(Boolean) ?? "markode@gmail.com";
+    .filter(Boolean),
+);
+const fallbackEmail = Array.from(hardAdminEmails)[0] ?? "ca.markode@gmail.com";
 
 const fallbackId =
   Deno.env.get("HARD_ADMIN_ID")?.trim() ??
@@ -526,6 +529,7 @@ async function updateEmployee(
   const employeeId = normalizeRequiredString(body.employeeId, "employeeId");
   const name = normalizeOptionalString(body.name, "name");
   const email = normalizeOptionalString(body.email, "email");
+  const password = normalizeOptionalString(body.password, "password");
   const roleName = normalizeOptionalString(body.roleName, "roleName");
   const companyName = normalizeOptionalString(body.companyName, "companyName");
   const isActiveInput = normalizeOptionalBoolean(body.isActive, "isActive");
@@ -603,6 +607,7 @@ async function updateEmployee(
     existingUser.role_id === targetRoleId &&
     existingUser.is_active === targetIsActive &&
     (existingUser.company_id ?? null) === (targetCompanyId ?? null);
+  const hasPasswordChange = password !== undefined;
   const noPermissionChange =
     !hasPermissionsField || (toAdd.size === 0 && toRemove.size === 0);
 
@@ -617,11 +622,12 @@ async function updateEmployee(
     existingPerms: Array.from(existingPerms),
     toAdd: Array.from(toAdd),
     toRemove: Array.from(toRemove),
+    hasPasswordChange,
     expectedUpdatedAt,
     currentUpdatedAt: existingUser.updated_at ?? null,
   });
 
-  if (noProfileChange && noPermissionChange) {
+  if (noProfileChange && noPermissionChange && !hasPasswordChange) {
     return jsonResponse({
       status: "ok",
       message: "Nothing to update",
@@ -662,7 +668,10 @@ async function updateEmployee(
   }
 
   const permissionChanges = !noPermissionChange;
-  if (permissionChanges && Object.keys(profileUpdates).length === 0) {
+  if (
+    (permissionChanges || hasPasswordChange) &&
+    Object.keys(profileUpdates).length === 0
+  ) {
     profileUpdates.updated_at = new Date().toISOString();
   }
 
@@ -701,6 +710,27 @@ async function updateEmployee(
     existingUser.is_active !== targetIsActive;
   if (isActiveChanged) {
     await setAuthBan(admin, employeeId, !(targetIsActive as boolean));
+  }
+
+  const authUpdates: Record<string, unknown> = {};
+  if (hasPasswordChange && password) {
+    authUpdates.password = password;
+  }
+  if (targetEmail != null && targetEmail !== existingUser.email) {
+    authUpdates.email = targetEmail;
+    authUpdates.email_confirm = true;
+  }
+  if (targetName != null && targetName !== existingUser.name) {
+    authUpdates.user_metadata = { name: targetName };
+  }
+  if (Object.keys(authUpdates).length > 0) {
+    const { error: authErr } = await admin.auth.admin.updateUserById(
+      employeeId,
+      authUpdates,
+    );
+    if (authErr) {
+      throw new HttpError(400, authErr.message);
+    }
   }
 
   const expectedFinalPerms = hasPermissionsField
@@ -781,6 +811,7 @@ async function updateEmployee(
     permissions_mode: hasPermissionsField ? permissionsMode : null,
     permissions_added: Array.from(toAdd),
     permissions_removed: Array.from(toRemove),
+    password_changed: hasPasswordChange,
     profile_changes: profileChanges,
     expected_updated_at: expectedUpdatedAt ?? null,
     updated_at: updatedAt,
@@ -1268,7 +1299,7 @@ async function getCallerContext(
     .eq("role_id", callerRoleId);
 
   const email = user.email?.toLowerCase() ?? "";
-  const hardAdmin = user.id === fallbackId || email === fallbackEmail;
+  const hardAdmin = user.id === fallbackId || hardAdminEmails.has(email);
 
   const permissionSet = new Set<string>([
     ...(perms ?? []).map((p: PermissionCodeRow) => p.permission_code),

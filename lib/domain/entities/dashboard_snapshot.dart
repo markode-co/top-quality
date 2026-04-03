@@ -45,6 +45,7 @@ class EmployeeReport {
     required this.ordersShipped,
     required this.ordersCompleted,
     required this.ordersReturned,
+    this.orderDetails = const [],
   });
 
   final String userId;
@@ -55,4 +56,25 @@ class EmployeeReport {
   final int ordersShipped;
   final int ordersCompleted;
   final int ordersReturned;
+  final List<EmployeeOrderDetail> orderDetails;
+}
+
+class EmployeeOrderDetail {
+  const EmployeeOrderDetail({
+    required this.orderId,
+    required this.orderNo,
+    required this.customerName,
+    required this.customerPhone,
+    this.customerAddress,
+    required this.status,
+    required this.actionAt,
+  });
+
+  final String orderId;
+  final int orderNo;
+  final String customerName;
+  final String customerPhone;
+  final String? customerAddress;
+  final OrderStatus status;
+  final DateTime actionAt;
 }

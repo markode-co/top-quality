@@ -72,8 +72,8 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: context.t(
-                            en: 'Search orders, products, employees...',
-                            ar: 'ابحث: طلبات، منتجات، موظفين...',
+                            en: 'Search orders, inventory, employees...',
+                            ar: 'ابحث: طلبات، مخزون، موظفين...',
                           ),
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: _searchController.text.trim().isEmpty
@@ -118,14 +118,17 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
                           Card(
                             child: ListTile(
                               leading: const Icon(Icons.history),
-                              title: Text(_actionLabel(context, log.action)),
+                              title: Text(_actionLabel(context, log)),
                               subtitle: Text(
                                 '${log.actorName}\n${_entitySummary(context, log)}',
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               trailing: Text(
-                                AppFormatters.shortDateTime(log.createdAt),
+                                AppFormatters.shortDateTime(
+                                  log.createdAt,
+                                  Localizations.localeOf(context).toString(),
+                                ),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ),
@@ -193,11 +196,6 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
         label: context.t(en: 'Orders', ar: 'الطلبات'),
       ),
       _CategoryChip(
-        category: _LogCategory.products,
-        icon: Icons.inventory_2_outlined,
-        label: context.t(en: 'Products', ar: 'المنتجات'),
-      ),
-      _CategoryChip(
         category: _LogCategory.inventory,
         icon: Icons.warehouse_outlined,
         label: context.t(en: 'Inventory', ar: 'المخزون'),
@@ -206,16 +204,6 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
         category: _LogCategory.employees,
         icon: Icons.badge_outlined,
         label: context.t(en: 'Employees', ar: 'الموظفون'),
-      ),
-      _CategoryChip(
-        category: _LogCategory.users,
-        icon: Icons.person_outline,
-        label: context.t(en: 'Users', ar: 'المستخدمون'),
-      ),
-      _CategoryChip(
-        category: _LogCategory.general,
-        icon: Icons.bolt_outlined,
-        label: context.t(en: 'General', ar: 'عام'),
       ),
     ];
 
@@ -240,11 +228,8 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
       final matchesCategory = switch (_category) {
         _LogCategory.all => true,
         _LogCategory.orders => log.entityType.toLowerCase() == 'order',
-        _LogCategory.products => log.entityType.toLowerCase() == 'product',
-        _LogCategory.inventory => log.entityType.toLowerCase() == 'inventory',
+        _LogCategory.inventory => _isInventoryLog(log),
         _LogCategory.employees => log.entityType.toLowerCase() == 'employee',
-        _LogCategory.users => log.entityType.toLowerCase() == 'user',
-        _LogCategory.general => log.entityType.trim().isEmpty,
       };
 
       if (!matchesCategory) return false;
@@ -267,13 +252,26 @@ class _ActivityLogsPageState extends ConsumerState<ActivityLogsPage> {
       log.actorId,
       log.actorEmail ?? '',
       log.action,
-      _actionLabel(context, log.action),
+      _actionLabel(context, log),
       log.entityType,
       log.entityId ?? '',
       _entitySummary(context, log),
       metaText,
     ].join(' ').toLowerCase();
   }
+}
+
+bool _isInventoryLog(ActivityLog log) {
+  final entityType = log.entityType.trim().toLowerCase();
+  if (entityType == 'inventory' || entityType == 'product') return true;
+
+  final action = log.action.trim().toLowerCase();
+  if (action == 'adjust_inventory' || action == 'upsert_product' || action == 'delete_product') return true;
+
+  final metadata = log.metadata ?? const <String, dynamic>{};
+  return metadata.containsKey('delta') ||
+      metadata.containsKey('new_stock') ||
+      metadata.containsKey('reason');
 }
 
 DataRow _activityRow(BuildContext context, ActivityLog log) {
@@ -287,7 +285,7 @@ DataRow _activityRow(BuildContext context, ActivityLog log) {
   final displayEmail = email.isNotEmpty
       ? email
       : (log.actorId.isNotEmpty ? log.actorId : '-');
-  final task = _actionLabel(context, log.action);
+  final task = _actionLabel(context, log);
   final activity = _entitySummary(context, log);
 
   return DataRow(
@@ -307,7 +305,10 @@ DataRow _activityRow(BuildContext context, ActivityLog log) {
       DataCell(
         _cellText(
           context,
-          AppFormatters.shortDateTime(log.createdAt),
+          AppFormatters.shortDateTime(
+            log.createdAt,
+            Localizations.localeOf(context).toString(),
+          ),
           maxWidth: 170,
           maxLines: 1,
         ),
@@ -319,6 +320,7 @@ DataRow _activityRow(BuildContext context, ActivityLog log) {
 
 String _entitySummary(BuildContext context, ActivityLog log) {
   final type = log.entityType.trim().toLowerCase();
+  final action = log.action.trim().toLowerCase();
   final id = (log.entityId ?? '').trim();
   final meta = log.metadata ?? const <String, dynamic>{};
 
@@ -360,6 +362,32 @@ String _entitySummary(BuildContext context, ActivityLog log) {
       orElse: () => OrderStatus.entered,
     );
     return context.orderStatusLabel(status);
+  }
+
+  if (action == 'adjust_inventory') {
+    final deltaText = meta['delta']?.toString().trim();
+    final reason = metaString('reason');
+    final name = metaString('product_name') ?? metaString('name');
+    final sku = metaString('sku') ?? metaString('product_sku');
+    final inventoryLabel = context.t(en: 'Inventory', ar: 'مخزون');
+    final itemLabel = [?sku, ?name].join(' - ');
+
+    if (itemLabel.isNotEmpty && deltaText != null && deltaText.isNotEmpty) {
+      return '$inventoryLabel ($itemLabel | $deltaText)';
+    }
+    if (itemLabel.isNotEmpty && reason != null) {
+      return '$inventoryLabel ($itemLabel | $reason)';
+    }
+    if (deltaText != null && deltaText.isNotEmpty && reason != null) {
+      return '$inventoryLabel ($deltaText - $reason)';
+    }
+    if (deltaText != null && deltaText.isNotEmpty) {
+      return '$inventoryLabel ($deltaText)';
+    }
+    if (reason != null) {
+      return '$inventoryLabel ($reason)';
+    }
+    return inventoryLabel;
   }
 
   if (type == 'order') {
@@ -425,7 +453,21 @@ Widget _cellText(
   );
 }
 
-String _actionLabel(BuildContext context, String action) {
+String _actionLabel(BuildContext context, ActivityLog log) {
+  final action = log.action.trim().toLowerCase();
+  if (action == 'admin-manage-employee') {
+    final employeeTask = log.metadata?['action']?.toString().trim().toLowerCase();
+    if (employeeTask != null && employeeTask.isNotEmpty) {
+      return context.t(
+        en: _employeeActionLabelEn(employeeTask),
+        ar: _employeeActionLabelAr(employeeTask),
+      );
+    }
+  }
+  if (action == 'upsert_product') {
+    return _productUpsertActionLabel(context, log);
+  }
+
   final mapEn = {
     'login': 'Login',
     'logout': 'Logout',
@@ -457,14 +499,106 @@ String _actionLabel(BuildContext context, String action) {
   return context.t(en: mapEn[action] ?? action, ar: mapAr[action] ?? action);
 }
 
+String _productUpsertActionLabel(BuildContext context, ActivityLog log) {
+  final metadata = log.metadata ?? const <String, dynamic>{};
+  final explicitAction = _readMetaToken(
+    metadata,
+    const ['action', 'operation', 'op', 'event', 'task'],
+  );
+  final productId = _readMetaToken(
+    metadata,
+    const ['p_product_id', 'product_id', 'existing_product_id'],
+  );
+
+  if (_isCreateOperation(explicitAction) ||
+      (metadata.containsKey('p_product_id') && _isNullLike(productId))) {
+    return context.t(en: 'Create product', ar: 'إضافة منتج');
+  }
+  if (_isUpdateOperation(explicitAction) || !_isNullLike(productId)) {
+    return context.t(en: 'Update product', ar: 'تعديل منتج');
+  }
+  return context.t(en: 'Save product', ar: 'حفظ منتج');
+}
+
+String? _readMetaToken(Map<String, dynamic> metadata, List<String> keys) {
+  for (final key in keys) {
+    final raw = metadata[key];
+    if (raw == null) continue;
+    final text = raw.toString().trim();
+    if (text.isEmpty) continue;
+    return text.toLowerCase();
+  }
+  return null;
+}
+
+bool _isNullLike(String? value) {
+  if (value == null) return true;
+  return value.isEmpty || value == 'null' || value == 'undefined';
+}
+
+bool _isCreateOperation(String? value) {
+  if (value == null || value.isEmpty) return false;
+  return value.contains('create') ||
+      value.contains('add') ||
+      value.contains('new') ||
+      value.contains('insert') ||
+      value.contains('إنشاء') ||
+      value.contains('اضاف');
+}
+
+bool _isUpdateOperation(String? value) {
+  if (value == null || value.isEmpty) return false;
+  return value.contains('update') ||
+      value.contains('edit') ||
+      value.contains('modify') ||
+      value.contains('save') ||
+      value.contains('تعديل') ||
+      value.contains('تحديث');
+}
+
+String _employeeActionLabelEn(String action) {
+  switch (action) {
+    case 'create':
+      return 'Create employee';
+    case 'update':
+      return 'Update employee';
+    case 'delete':
+      return 'Delete employee';
+    case 'activate':
+      return 'Activate employee';
+    case 'deactivate':
+      return 'Deactivate employee';
+    case 'transfer':
+      return 'Transfer employee';
+    default:
+      return 'Employee action';
+  }
+}
+
+String _employeeActionLabelAr(String action) {
+  switch (action) {
+    case 'create':
+      return 'إنشاء موظف';
+    case 'update':
+      return 'تحديث موظف';
+    case 'delete':
+      return 'حذف موظف';
+    case 'activate':
+      return 'تفعيل موظف';
+    case 'deactivate':
+      return 'إيقاف موظف';
+    case 'transfer':
+      return 'نقل موظف';
+    default:
+      return 'عملية موظف';
+  }
+}
+
 enum _LogCategory {
   all,
   orders,
-  products,
   inventory,
   employees,
-  users,
-  general,
 }
 
 class _CategoryChip {

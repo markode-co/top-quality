@@ -23,10 +23,17 @@ import 'package:top_quality/domain/usecases/transition_order.dart';
 
 final appModeProvider = Provider<AppMode>((ref) => AppMode.live);
 
-final appLocaleProvider = StateProvider<Locale>(
-  (ref) => const Locale('ar', 'EG'),
-);
-final appThemeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
+Locale _defaultLocaleFromSystem() {
+  final platformLocale = WidgetsBinding.instance.platformDispatcher.locale;
+  final languageCode = platformLocale.languageCode.toLowerCase();
+  if (languageCode == 'ar') {
+    return const Locale('ar', 'EG');
+  }
+  return const Locale('en', 'US');
+}
+
+final appLocaleProvider = StateProvider<Locale>((ref) => _defaultLocaleFromSystem());
+final appThemeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 
 final backendConfiguredProvider = Provider<bool>(
   (ref) => ref.watch(appModeProvider) == AppMode.live,
@@ -78,29 +85,53 @@ final currentUserProvider = Provider<AppUser?>(
   (ref) => ref.watch(sessionProvider).valueOrNull,
 );
 
-final ordersProvider = StreamProvider<List<OrderEntity>>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchOrders(),
-);
+final ordersProvider = StreamProvider<List<OrderEntity>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Stream<List<OrderEntity>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).watchOrders();
+});
 
-final productsProvider = StreamProvider<List<Product>>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchProducts(),
-);
+final productsProvider = StreamProvider<List<Product>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Stream<List<Product>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).watchProducts();
+});
 
-final usersProvider = StreamProvider<List<AppUser>>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchUsers(),
-);
+final usersProvider = StreamProvider<List<AppUser>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Stream<List<AppUser>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).watchUsers();
+});
 
-final activityLogsProvider = StreamProvider<List<ActivityLog>>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchActivityLogs(),
-);
+final activityLogsProvider = StreamProvider<List<ActivityLog>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Stream<List<ActivityLog>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).watchActivityLogs();
+});
 
-final dashboardProvider = StreamProvider<DashboardSnapshot>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchDashboardSnapshot(),
-);
+final dashboardProvider = StreamProvider<DashboardSnapshot>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return const Stream<DashboardSnapshot>.empty();
+  }
+  return ref.watch(wmsRepositoryProvider).watchDashboardSnapshot();
+});
 
-final employeeReportsProvider = StreamProvider<List<EmployeeReport>>(
-  (ref) => ref.watch(wmsRepositoryProvider).watchEmployeeReports(),
-);
+final employeeReportsProvider = StreamProvider<List<EmployeeReport>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return Stream<List<EmployeeReport>>.value(const []);
+  }
+  return ref.watch(wmsRepositoryProvider).watchEmployeeReports();
+});
 
 final notificationsProvider = StreamProvider<List<AppNotification>>((ref) {
   final user = ref.watch(currentUserProvider);
@@ -151,30 +182,51 @@ final orderDetailProvider =
     });
 
 class AuthController extends StateNotifier<AsyncValue<void>> {
-  AuthController(this._signIn, this._signOut) : super(const AsyncData(null));
+  AuthController(this._ref, this._signIn, this._signOut)
+    : super(const AsyncData(null));
 
+  final Ref _ref;
   final SignInUseCase _signIn;
   final SignOutUseCase _signOut;
+
+  void _resetScopedDataProviders() {
+    _ref.invalidate(ordersProvider);
+    _ref.invalidate(productsProvider);
+    _ref.invalidate(usersProvider);
+    _ref.invalidate(activityLogsProvider);
+    _ref.invalidate(dashboardProvider);
+    _ref.invalidate(employeeReportsProvider);
+    _ref.invalidate(notificationsProvider);
+  }
 
   Future<void> signIn({
     required String identifier,
     required String password,
   }) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
+    final result = await AsyncValue.guard(
       () => _signIn(identifier: identifier, password: password),
     );
+    state = result;
+    if (!result.hasError) {
+      _resetScopedDataProviders();
+    }
   }
 
   Future<void> signOut() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_signOut.call);
+    final result = await AsyncValue.guard(_signOut.call);
+    state = result;
+    if (!result.hasError) {
+      _resetScopedDataProviders();
+    }
   }
 }
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AsyncValue<void>>(
       (ref) => AuthController(
+        ref,
         ref.watch(signInUseCaseProvider),
         ref.watch(signOutUseCaseProvider),
       ),
@@ -199,8 +251,31 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     state = await AsyncValue.guard(() => action(user));
   }
 
+  void _refreshOrdersStreams({String? orderId}) {
+    _ref.invalidate(ordersProvider);
+    _ref.invalidate(dashboardProvider);
+    _ref.invalidate(employeeReportsProvider);
+    _ref.invalidate(activityLogsProvider);
+    _ref.invalidate(notificationsProvider);
+    if (orderId != null && orderId.isNotEmpty) {
+      _ref.invalidate(orderDetailProvider(orderId));
+      _ref.invalidate(orderByIdProvider(orderId));
+    }
+  }
+
+  void _refreshProductsStream() {
+    _ref.invalidate(productsProvider);
+    _ref.invalidate(dashboardProvider);
+    _ref.invalidate(activityLogsProvider);
+    _ref.invalidate(employeeReportsProvider);
+    _ref.invalidate(notificationsProvider);
+  }
+
   void _refreshUsersStream() {
     _ref.invalidate(usersProvider);
+    _ref.invalidate(activityLogsProvider);
+    _ref.invalidate(notificationsProvider);
+    _ref.invalidate(employeeReportsProvider);
   }
 
   Future<void> createOrder({
@@ -209,16 +284,19 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
-  }) {
+  }) async {
     return _run(
-      (user) => _ref.read(createOrderUseCaseProvider)(
-        actor: user,
-        customerName: customerName,
-        customerPhone: customerPhone,
-        customerAddress: customerAddress,
-        notes: notes,
-        items: items,
-      ),
+      (user) async {
+        await _ref.read(createOrderUseCaseProvider)(
+          actor: user,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          customerAddress: customerAddress,
+          notes: notes,
+          items: items,
+        );
+        _refreshOrdersStreams();
+      },
     );
   }
 
@@ -229,27 +307,33 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String customerAddress,
     required String? notes,
     required List<OrderItem> items,
-  }) {
+  }) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .updateOrder(
-            actor: user,
-            orderId: orderId,
-            customerName: customerName,
-            customerPhone: customerPhone,
-            customerAddress: customerAddress,
-            notes: notes,
-            items: items,
-          ),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .updateOrder(
+              actor: user,
+              orderId: orderId,
+              customerName: customerName,
+              customerPhone: customerPhone,
+              customerAddress: customerAddress,
+              notes: notes,
+              items: items,
+            );
+        _refreshOrdersStreams(orderId: orderId);
+      },
     );
   }
 
-  Future<void> deleteOrder(String orderId) {
+  Future<void> deleteOrder(String orderId) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .deleteOrder(actor: user, orderId: orderId),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .deleteOrder(actor: user, orderId: orderId);
+        _refreshOrdersStreams(orderId: orderId);
+      },
     );
   }
 
@@ -257,14 +341,17 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required OrderEntity order,
     required OrderStatus nextStatus,
     String? note,
-  }) {
+  }) async {
     return _run(
-      (user) => _ref.read(transitionOrderUseCaseProvider)(
-        actor: user,
-        order: order,
-        nextStatus: nextStatus,
-        note: note,
-      ),
+      (user) async {
+        await _ref.read(transitionOrderUseCaseProvider)(
+          actor: user,
+          order: order,
+          nextStatus: nextStatus,
+          note: note,
+        );
+        _refreshOrdersStreams(orderId: order.id);
+      },
     );
   }
 
@@ -272,32 +359,41 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String orderId,
     required OrderStatus nextStatus,
     String? note,
-  }) {
+  }) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .overrideOrderStatus(
-            actor: user,
-            orderId: orderId,
-            nextStatus: nextStatus,
-            note: note,
-          ),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .overrideOrderStatus(
+              actor: user,
+              orderId: orderId,
+              nextStatus: nextStatus,
+              note: note,
+            );
+        _refreshOrdersStreams(orderId: orderId);
+      },
     );
   }
 
-  Future<void> upsertProduct(ProductDraft product) {
+  Future<void> upsertProduct(ProductDraft product) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .upsertProduct(actor: user, product: product),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .upsertProduct(actor: user, product: product);
+        _refreshProductsStream();
+      },
     );
   }
 
-  Future<void> deleteProduct(String productId) {
+  Future<void> deleteProduct(String productId) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .deleteProduct(actor: user, productId: productId),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .deleteProduct(actor: user, productId: productId);
+        _refreshProductsStream();
+      },
     );
   }
 
@@ -305,16 +401,19 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
     required String productId,
     required int quantityDelta,
     required String reason,
-  }) {
+  }) async {
     return _run(
-      (user) => _ref
-          .read(wmsRepositoryProvider)
-          .adjustInventory(
-            actor: user,
-            productId: productId,
-            quantityDelta: quantityDelta,
-            reason: reason,
-          ),
+      (user) async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .adjustInventory(
+              actor: user,
+              productId: productId,
+              quantityDelta: quantityDelta,
+              reason: reason,
+            );
+        _refreshProductsStream();
+      },
     );
   }
 
@@ -372,8 +471,26 @@ class OperationsController extends StateNotifier<AsyncValue<void>> {
   Future<void> markNotificationRead(String notificationId) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () =>
-          _ref.read(wmsRepositoryProvider).markNotificationRead(notificationId),
+      () async {
+        await _ref
+            .read(wmsRepositoryProvider)
+            .markNotificationRead(notificationId);
+        _ref.invalidate(notificationsProvider);
+      },
+    );
+  }
+
+  Future<void> markAllNotificationsRead(List<String> notificationIds) async {
+    if (notificationIds.isEmpty) return;
+
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () async {
+        for (final id in notificationIds) {
+          await _ref.read(wmsRepositoryProvider).markNotificationRead(id);
+        }
+        _ref.invalidate(notificationsProvider);
+      },
     );
   }
 }

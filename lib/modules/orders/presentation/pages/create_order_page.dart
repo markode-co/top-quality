@@ -39,6 +39,14 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
   @override
   Widget build(BuildContext context) {
     final productsValue = ref.watch(productsProvider);
+    final ordersValue = ref.watch(ordersProvider);
+    final existingCustomers = ordersValue.valueOrNull ?? const <OrderEntity>[];
+    final customerSuggestions = existingCustomers
+        .map((order) => order.customerName.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     final operationState = ref.watch(operationsControllerProvider);
     final existingOrder = widget.orderId == null
         ? null
@@ -72,18 +80,58 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
               key: _formKey,
               child: Column(
                 children: [
-                  TextFormField(
-                    controller: _customerController,
-                    decoration: InputDecoration(
-                      labelText: context.t(
-                        en: 'Customer Name',
-                        ar: 'اسم العميل',
-                      ),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? context.t(en: 'Required', ar: 'مطلوب')
-                        : null,
+                  Autocomplete<String>(
+                    optionsBuilder: (textEditingValue) {
+                      final query = textEditingValue.text.trim().toLowerCase();
+                      return customerSuggestions.where(
+                        (name) => query.isEmpty ||
+                            name.toLowerCase().contains(query),
+                      );
+                    },
+                    onSelected: (selection) {
+                      final match = existingCustomers.firstWhereOrNull(
+                        (order) => order.customerName.trim() == selection,
+                      );
+                      if (match != null) {
+                        _customerController.text = match.customerName;
+                        _phoneController.text = match.customerPhone;
+                        _addressController.text = match.customerAddress ?? '';
+                      } else {
+                        _customerController.text = selection;
+                      }
+                    },
+                    fieldViewBuilder: (
+                      context,
+                      fieldTextController,
+                      focusNode,
+                      onEditingComplete,
+                    ) {
+                      if (fieldTextController.text != _customerController.text) {
+                        fieldTextController.text = _customerController.text;
+                        fieldTextController.selection = TextSelection.collapsed(
+                          offset: fieldTextController.text.length,
+                        );
+                      }
+
+                      return TextFormField(
+                        controller: fieldTextController,
+                        focusNode: focusNode,
+                        onEditingComplete: onEditingComplete,
+                        decoration: InputDecoration(
+                          labelText: context.t(
+                            en: 'Customer Name',
+                            ar: 'اسم العميل',
+                          ),
+                        ),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? context.t(en: 'Required', ar: 'مطلوب')
+                                : null,
+                        onChanged: (value) {
+                          _customerController.text = value;
+                        },
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

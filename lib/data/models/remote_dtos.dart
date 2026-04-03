@@ -1,4 +1,5 @@
-﻿import 'package:top_quality/core/constants/app_enums.dart';
+﻿import 'package:top_quality/core/constants/app_constants.dart';
+import 'package:top_quality/core/constants/app_enums.dart';
 import 'package:top_quality/domain/entities/activity_log.dart';
 import 'package:top_quality/domain/entities/app_notification.dart';
 import 'package:top_quality/domain/entities/app_user.dart';
@@ -25,9 +26,9 @@ class RemoteMapper {
 
     // ط¥ط°ط§ ظƒط§ظ†طھ ط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ظ…ط±ط³ظ„ط© طھظ…ط«ظ„ ظˆطµظˆظ„ط§ظ‹ ظƒط§ظ…ظ„ط§ظ‹ ط£ظˆ طھط­طھظˆظٹ admin_access
     // ط§ط¬ط¹ظ„ ط§ظ„ط¯ظˆط± Admin ط­طھظ‰ ظ„ظˆ ظƒط§ظ† ط§ط³ظ… ط§ظ„ط¯ظˆط± ط£ظˆ ط§ظ„ظ…ط¹ط±ظ‘ظپ ظ…ظپظ‚ظˆط¯ظٹظ† ظپظٹ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط§ظ„ظˆط§ط±ط¯ط©.
-    final isMarkode = email.toLowerCase() == 'markode@gmail.com';
+    final isAdminPortalUser = AppConstants.isAdminPortalEmail(email);
 
-    if (isMarkode) {
+    if (isAdminPortalUser) {
       role = UserRole.admin;
       resolvedPermissions = AppPermission.values.toSet();
     } else if (resolvedPermissions.length == AppPermission.values.length ||
